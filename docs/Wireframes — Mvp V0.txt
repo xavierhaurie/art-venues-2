@@ -1,0 +1,143 @@
+Wireframes — MVP v0.1
+Legend: [ ] checkbox/filter, ( ) toggle, ? radio, ? bookmark, ? sticker dot, ? primary CTA, … overflow, ? attachment, ? external link.
+Top Nav (all screens): Logo · Region: BOS ? · Search ? · Saved Views ? · Open Calls · Blog · Referrals · My Profile ?
+
+1) Dashboard
++----------------------------------------------------------------------------------+
+|  Welcome back, Xavier                                    [Create Open Call] ?   |
++--------------------------+-----------------------------+-------------------------+
+| Matches (this week)      | Open Calls (deadlines)      | Saved Views             |
+| ------------------------ | --------------------------- | ----------------------- |
+| [ Venue A ]  score 92    |  • Gallery X — 2025-11-02   |  • JP Cafés w/ MBTA     |
+| [ Venue B ]  score 88    |  • Library Y — 2025-11-15   |  • 0% commission labs   |
+| [ View all ? ]           |  • Market Z — 2025-12-01    |  • SoWa claim targets   |
++--------------------------+-----------------------------+-------------------------+
+| To?Do Wall (pins)        | Referral credit             | Blog Highlights         |
+| [ Applied ? Gallery X ]  |  Invite link: https://… Copy| • “How venues review…”  |
+| [ Follow up: Venue B ]   |  Converted: 3  Credits: 3mo | • “Artist pricing 101”  |
++--------------------------+-----------------------------+-------------------------+
+Accept: page loads <1s p95; zero?state shows sample data; top CTAs: View all Matches, Create Open Call.
+
+2) Venues — List + Map Toggle
++----------------------------------------------------------------------------------+
+|  Venues                                      ( ) Map off  ( ) Map on   [Save] ? |
++----------------------+-----------------------------------------------------------+
+| Filters              |  Sort: Locality ?  Group: None ?  Page: 1  [10] [25] [50] |
+| [ ] Has open calls   | --------------------------------------------------------- |
+| [ ] Has my notes     |  [ ? ]  Venue A  · Jamaica Plain · MBTA: Yes · 2.3 mi    |
+| [ ] MBTA: Yes        |   ??  Stickers: [Green]=“emailed” [Purple]=“visit”       |
+| Type ?               |   Blurb…  [Details ?]  [Add Note]  [Stickers ?]          |
+| Locality ?           | --------------------------------------------------------- |
+| Distance ?           |  [ ? ]  Venue B  · Somerville · MBTA: Partial · 5.1 mi    |
+| Stickers ?           |   ?    Stickers: [Red]=“fees>50%”  [Details ?]           |
+| Saved Views ?        | --------------------------------------------------------- |
++----------------------+-----------------------------------------------------------+
+Map on (split view):
++---------------------+----------------------------------------------+
+| Filters             |  ?? Map (clustered pins)      |  List        |
+| …                   |  [bbox filter sync]          |  Venue cards |
++---------------------+----------------------------------------------+
+Accept: p95 search <600ms; sticky filters; saved views create/update; empty?state suggestions.
+
+3) Venue Detail
++----------------------------------------------------------------------------------+
+| Venue A · Gallery · Jamaica Plain                 [? Bookmark]  [Claim this] ?  |
+| MBTA: Yes · 2.3 mi · Mediums: painting, photo · Commission: 40% · Fees: none    |
+| Submission: rolling · Website ?                                                      |
++------------------------------+---------------------------------------------------+
+| Gallery                      | My Notes (Artist)                                 |
+| [ hero image/video ]         | [ Add note ]  ? Attach (?10MB total)              |
+| [ thumbnails … ]             | ------------------------------------------------- |
+| Open Calls                   | • 2025-11-15 — “Winter Small Works”  ?  [Pin]     |
++------------------------------+---------------------------------------------------+
+| Stickers: ?Green “emailed”  ?Purple “visit”   [Manage meanings ?]               |
++----------------------------------------------------------------------------------+
+Accept: artists can add note + attachments inline; venues (claimed) see Edit; unclaimed shows Claim this.
+
+4) Open Calls + Calendar + To?Do Wall
++----------------------------------------------------------------------------------+
+| Open Calls  [Feed ?]  [Calendar ?]  [To?Do Wall ?]    Filters: Type ? Locality ? |
++----------------------------------------------------------------------------------+
+| [Card] Gallery X — “Emerging Painters”   Deadline: 2025-11-02   [Apply ?] [Pin] |
+|  Summary…  [Mark “Applied on” ?]  [Add note]                                     |
+|----------------------------------------------------------------------------------|
+| [Card] Library Y — “Public Art Proposal” Deadline: 2025-11-15   [Apply ?] [Pin] |
+Calendar (month grid with dots); To?Do Wall (kanban):
++-----------------+-----------------+-----------------+-----------------+
+| Soon (?7 days)  | Later           | Applied         | Done            |
+| • Gallery X     | • Market Z      | • Library Y     | • Gallery Q     |
++-----------------+-----------------+-----------------+-----------------+
+Accept: pin/unpin; deadline reminders T?7/T?1; annotate “Applied on”.
+
+5) Artists Directory (for Venues)
++----------------------------------------------------------------------------------+
+| Artists (Directory)                             Filters: Medium ? Goals ? Region |
++----------------------+-----------------------------------------------------------+
+| [ ] Availability now |  [ ? ]  Xavier H. — Painting/Photo — JP  [Profile ?]      |
+| Mediums ?            |   Recent works …   [Intent to contact] ?                  |
+| Goals ?              | --------------------------------------------------------- |
+| Region ?             |  [ ? ]  A. Rivera — Sculpture — Somerville  [Profile ?]   |
++----------------------+-----------------------------------------------------------+
+Accept: venues can bookmark and log Intent to contact; no in?app messaging (M0–M2).
+
+6) My Profile (Artist)
++----------------------------------------------------------------------------------+
+| My Profile                              Visibility: [ None ? ] Venues  Public    |
++----------------------------------------------------------------------------------+
+| Statement [ RTE ]                                                                |
+| Availability/Goals [ … ]                                                         |
+| Media (?100 images + 1×5?min video)  [Upload ?]  [Import from website]           |
+| [ grid thumbnails … ]  [Set cover]  [Alt text]  [Delete]                         |
+Accept: background processing for media; scheduled refresh from external site.
+
+7) Blog — Index + Post + Comments (Subscriber?gated)
+Index
++----------------------------------------------------------------------------------+
+| Blog                                  Tags: [Venues] [Artists] [How?to] [News]   |
+| • How venues shortlist artists (2025?10?01)  [Read ?]   Participants: 27 (subs)  |
+| • Artist pricing 101 (2025?09?24)             [Read ?]   Participants: 41 (subs) |
+Post
++----------------------------------------------------------------------------------+
+| How venues shortlist artists                                  2025?10?01         |
+| Body…                                                                               |
+| Participants (subscribers only):  [Subscribe to view profiles] ?                 |
+| Comments (subscribers only):      [Sign in]  [Subscribe] ?                        |
+Accept: non?subs see content but not participant profiles; comments gated to subs.
+
+8) Referrals
++----------------------------------------------------------------------------------+
+| Invite fellow artists ? Earn 1 month credit per conversion (no cap)               |
+| Your link: https://…  [Copy]  [Share]                                            |
+| Converted: 3   Pending: 5   Credits: 3 months                                    |
++-----------------------------+----------------------------------------------------+
+| Recent invites              |                                                     |
+| • A.R. — sent 10/01  Status: Pending                                             |
+| • K.M. — sent 09/28  Status: Converted (credit 10/12)                            |
++-----------------------------+----------------------------------------------------+
+Accept: fraud checks (no self?referrals), 14?day cooling?off before credit.
+
+9) Admin — Moderation, Claims, Credits, Broadcasts
++----------------------------------------------------------------------------------+
+| Admin: [Moderation] [Claims] [Credits] [Broadcasts] [Reports] [Audit Log]        |
++----------------------------------------------------------------------------------+
+| Moderation queue:                                                                |
+| • Comment #4821  — flagged spam — [Approve] [Remove] [Block user]                |
+| Claims:                                                                          |
+| • Venue Q — domain verified — [Approve] [Reject]                                  |
+| Credits:                                                                         |
+| • Data?fix — user X — 1 mo — [Apply]  • Referral — user Y — 1 mo — [Apply]       |
+| Broadcasts: [Compose to Artists ? Venues ?]  [Send test] [Send]                  |
+Accept: all actions audited; idempotent credit application.
+
+10) Match Surfacing (inline panel)
++----------------------------------------------------------------------------------+
+| Matches for you (7?day cooldown per pair)                                        |
+| • Venue A — score 92 — Because: “medium fit, location fit, open call soon”       |
+|   [View venue] [Not relevant] [Bookmark]                                         |
+| • Venue B — score 88 — Because: “bookmarked + MBTA access”                       |
+Accept: record feedback; explain top factors.
+
+Mobile notes
+* Venues list: filters in bottom sheet; map toggle above list; 2?column card grid ?768px.
+* Venue detail: sticky CTA bar (Bookmark / Add note / Pin call).
+* Open calls: default to Feed; swipe to To?Do.

@@ -1,0 +1,3 @@
+The application will be hosted on Vercel as a Next.js application.
+The database, the backend functionality and its API will be hosted on Supabase in a PostgreSQL database.
+The credit card processing will use Stripe. For now we will NOT integrate OAuth.

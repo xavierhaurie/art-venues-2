@@ -1,0 +1,107 @@
+[
+  {
+    "title": "M0-AUTH-01 — Email magic-link + Google/Meta OAuth + mandatory TOTP on first login + backup codes + session rotation + rate limiting",
+    "body": "Description:\nImplement sign-up/login via email magic-link and OAuth (Google, Meta). On a user’s first successful login, require TOTP setup before granting normal access. Provide 10 one-time backup codes (hashed). When 2FA is enabled, rotate/revoke existing sessions. Add rate limiting to auth endpoints.\n\nAcceptance Criteria:\n- Magic-link and OAuth sign-in flows work (email, Google, Meta).\n- On first login, user is forced to complete TOTP setup before access is granted.\n- System issues 10 one-time backup codes; codes stored only hashed; UI supports view/regenerate.\n- Sessions are rotated/revoked when 2FA is enabled.\n- Auth endpoints rate-limited per-IP and per-account.\n- Audit log entries for auth failures and 2FA enable/disable.\n- Security: no plaintext backup codes stored; TOTP secrets encrypted; replay protection on links.\n\nEstimate: 8",
+    "labels": ["M0","epic/auth","backend","security","api","infra"]
+  },
+  {
+    "title": "M0-AUTH-02 — RBAC: roles enforcement & audit denies",
+    "body": "Description:\nAdd role-based access controls (admin/artist/venue/service). Ensure session/JWT carries role and server enforces role checks across endpoints; log denies.\n\nAcceptance Criteria:\n- JWT/session includes role claim.\n- Server returns 403 on role violations.\n- Audit log entry for denied access containing request id, user id, endpoint, required role.\n\nEstimate: 3",
+    "labels": ["M0","epic/auth","backend","security","api"]
+  },
+  {
+    "title": "M0-AUTH-03 — Row-Level Security (RLS) policies for user data",
+    "body": "Description:\nImplement RLS policies (Supabase-style) for tables containing user data so users/artists/venues only access permitted rows.\n\nAcceptance Criteria:\n- RLS enabled on all user-context tables.\n- Artists can only read/write their notes/stickers/media.\n- Venues restricted per role until claim feature added.\n- Tests demonstrating RLS denies cross-user access.\n\nEstimate: 3",
+    "labels": ["M0","epic/auth","backend","security","db"]
+  },
+  {
+    "title": "M0-VEN-01 — Venue list API (paging, filters, sort)",
+    "body": "Description:\nImplement `GET /venues` supporting pagination, filters (locality, type, mbta, has_open_call), and sort (name, locality) with p95 < 600ms at 250 rows.\n\nAcceptance Criteria:\n- `page`/`page_size` params supported.\n- Filters (locality, type, mbta, has_open_call) produce correct results.\n- Sorting works by allowed fields (name, locality).\n- Performance: p95 < 600ms @ 250 rows (bench evidence attached).\n\nEstimate: 3",
+    "labels": ["M0","epic/venues","backend","api","perf"]
+  },
+  {
+    "title": "M0-VEN-02 — Venue full-text search (name + blurb)",
+    "body": "Description:\nAdd full-text search for venues using FTS with trigram fallback, returning highlight snippets and protecting from SQLi.\n\nAcceptance Criteria:\n- `q` param searches FTS and falls back to trigram.\n- Snippets returned with highlights.\n- No SQL injection vector.\n- Index-only scans where possible.\n\nEstimate: 4",
+    "labels": ["M0","epic/venues","backend","search","security"]
+  },
+  {
+    "title": "M0-VEN-03 — Distance & MBTA fields for venues",
+    "body": "Description:\nPopulate distance-from-Park-St and MBTA fields; support filtering by MBTA (yes/partial/no).\n\nAcceptance Criteria:\n- Distance field generated/populated for venues.\n- MBTA field present; filters `yes`/`partial`/`no` work.\n- API filter returns correct subsets.\n\nEstimate: 2",
+    "labels": ["M0","epic/venues","backend","data"]
+  },
+  {
+    "title": "M0-VEN-04 — Seed import: 250 BOS venues + CSV importer",
+    "body": "Description:\nOne-shot `seed.sql` plus CSV importer to load 250 Boston venues idempotently; provide sample screenshots.\n\nAcceptance Criteria:\n- `seed.sql` and CSV importer implemented.\n- Import is idempotent with 0 invalid rows.\n- 250 venues visible in prod; include screenshots of 10 random records.\n\nEstimate: 2",
+    "labels": ["M0","epic/venues","backend","data","infra"]
+  },
+  {
+    "title": "M0-NOTE-01 — Per-venue notes (rich text) CRUD with optimistic UI",
+    "body": "Description:\nImplement create/edit/delete of rich-text notes per venue with optimistic UI, autosave, and undo within 10s.\n\nAcceptance Criteria:\n- Inline create/edit/delete works on venue detail.\n- Autosave enabled; undo available for 10s after changes.\n- Optimistic UI behavior with error rollback.\n\nEstimate: 3",
+    "labels": ["M0","epic/notes","frontend","backend","ux"]
+  },
+  {
+    "title": "M0-NOTE-02 — Note attachments total size limit (≤10MB) via signed URLs",
+    "body": "Description:\nImplement attachment uploads via signed URLs, enforce ≤10MB total per note, show running total in UI, allow delete and update totals.\n\nAcceptance Criteria:\n- Signed URL upload flow functional.\n- Server rejects uploads that would exceed 10MB total.\n- UI shows running total and deletes update total.\n\nEstimate: 3",
+    "labels": ["M0","epic/notes","backend","frontend","storage","security"]
+  },
+  {
+    "title": "M0-NOTE-03 — Stickers: manage meanings, assign multiple per venue, UI dots + accessible tooltips",
+    "body": "Description:\nImplement stickers (10 colors) with per-artist meanings (label/emoji), allow assigning multiple to venues, and show dots with accessible tooltips.\n\nAcceptance Criteria:\n- Stickers CRUD for artist meaning entries.\n- Multiple stickers attachable to a venue.\n- List view shows colored dots with accessible tooltips.\n\nEstimate: 2",
+    "labels": ["M0","epic/notes","frontend","ux","backend"]
+  },
+  {
+    "title": "M0-NOTE-04 — Export notes CSV including stickers snapshot",
+    "body": "Description:\nImplement CSV export of notes containing venue id/name, note text, created_at, and stickers applied at export time.\n\nAcceptance Criteria:\n- CSV includes required columns.\n- Stickers reflect snapshot at export time.\n- Export download works for allowed users.\n\nEstimate: 2",
+    "labels": ["M0","epic/notes","backend","api","ux"]
+  },
+  {
+    "title": "M0-PROF-01 — Artist profile CRUD + visibility controls",
+    "body": "Description:\nImplement profile create/edit/delete with rich-text statement/goals and visibility toggles (none / venues / public). Default visibility none.\n\nAcceptance Criteria:\n- Profile CRUD works.\n- Visibility default is none and persists.\n- Public page hides if no public content.\n\nEstimate: 3",
+    "labels": ["M0","epic/profiles","backend","frontend","ux"]
+  },
+  {
+    "title": "M0-PROF-02 — Image uploads for profiles with quota + cover + alt-text",
+    "body": "Description:\nAllow up to 100 profile images with progress, background processing, set cover, alt-text, delete, and quota UI.\n\nAcceptance Criteria:\n- Uploads supported with progress and background processing.\n- Max 100 images enforced; quota UI visible.\n- Cover image and alt-text supported; delete works.\n\nEstimate: 3",
+    "labels": ["M0","epic/profiles","frontend","backend","storage","ux"]
+  },
+  {
+    "title": "M0-BILL-01 — Plan flags + gating (Free vs Pro Artist)",
+    "body": "Description:\nImplement plan flags and gating: admin toggles plan; Free sees view-only venues; Pro unlocks notes, stickers, profile, CSV export; add upsell banners.\n\nAcceptance Criteria:\n- Admin UI toggles user plan.\n- Feature gating enforced server-side.\n- Upsell banners appear on blocked actions.\n\nEstimate: 2",
+    "labels": ["M0","epic/billing","backend","frontend","admin"]
+  },
+  {
+    "title": "M0-BILL-02 — Venue basic role provision",
+    "body": "Description:\nAdd `venue` role with read-only access to venues list; dashboard tile explains claim feature upcoming.\n\nAcceptance Criteria:\n- `venue` role exists and is assignable.\n- Role has read-only views of venues.\n- Dashboard tile present explaining claim feature.\n\nEstimate: 1",
+    "labels": ["M0","epic/billing","backend","ux","roles"]
+  },
+  {
+    "title": "M0-OBS-01 — Logging, metrics, health endpoint",
+    "body": "Description:\nAdd structured logs (request id, user id, role), basic metrics, and `/healthz` endpoint. Configure error monitoring alerts for 5xx > 1%/5m.\n\nAcceptance Criteria:\n- `/healthz` returns healthy status.\n- Structured logs include request id, user id, role.\n- Basic metrics emitted; alerting rule configured for 5xx > 1%/5m.\n\nEstimate: 3",
+    "labels": ["M0","epic/observability","backend","infra","monitoring"]
+  },
+  {
+    "title": "M0-ANL-01 — Event schema + capture for core events",
+    "body": "Description:\nImplement event schema and capture for core events: user.signup, user.login, venue.list.viewed, venue.search, note.created, sticker.assigned, profile.updated, notes.csv.exported with user_id, ts, props.\n\nAcceptance Criteria:\n- Events emitted with required fields.\n- Events stored/forwarded to analytics sink.\n- Basic query demonstrates D7 activation metric.\n\nEstimate: 3",
+    "labels": ["M0","epic/analytics","backend","infra","events"]
+  },
+  {
+    "title": "M0-CI-01 — CI pipeline + preview deploys + test/typecheck",
+    "body": "Description:\nImplement CI for lint, tests, typecheck, and preview deploys for PRs. Document main → prod flow and secrets handling.\n\nAcceptance Criteria:\n- CI runs lint, unit tests, and typechecks on PRs.\n- Preview deploys for PRs enabled.\n- Deployment documentation and rollback process added.\n\nEstimate: 3",
+    "labels": ["M0","epic/ci","infra","devops"]
+  },
+  {
+    "title": "M0-UX-01 — App shell & routing with auth guard",
+    "body": "Description:\nImplement app shell (top nav with Logo, Region=BOS, Search, Open Calls disabled, Blog disabled, Referrals disabled, My Profile), 404 page, and auth guard redirect.\n\nAcceptance Criteria:\n- Top nav items present and links configured.\n- 404 page implemented.\n- Auth guard redirects unauthenticated users to sign-in.\n\nEstimate: 2",
+    "labels": ["M0","epic/ux","frontend","routing","accessibility"]
+  },
+  {
+    "title": "M0-UX-02 — Venue detail page (read-only fields) + notes/stickers pane",
+    "body": "Description:\nImplement venue detail read-only fields (blurb, locality, MBTA, mediums, commission/fees, website) and notes/stickers pane for artist users.\n\nAcceptance Criteria:\n- Venue detail shows required fields.\n- Artist’s notes/stickers pane present and functions in read-only mode for non-authorized roles.\n\nEstimate: 2",
+    "labels": ["M0","epic/ux","frontend","backend"]
+  },
+  {
+    "title": "M0-DO-01 — M0 exit criteria verification",
+    "body": "Description:\nVerify M0 Definition of Done: new artist signup (with 2FA), browse/search venues, add note with attachments, manage stickers, create/upload profile images, export notes CSV; RLS and rate limits enforced; p95 latency targets met; analytics events captured; seeded venues present.\n\nAcceptance Criteria:\n- All core flows pass E2E test matrix.\n- p95 for /venues and /notes < 600ms.\n- Error rate < 0.5%.\n- RLS enabled and tested.\n- 250 venues seeded.\n\nEstimate: 2",
+    "labels": ["M0","epic/qa","release","infra"]
+  }
+]
