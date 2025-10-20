@@ -32,7 +32,7 @@ export async function withRoleCheck(
   }
 
   // Verify session token
-  const session = verifySession(sessionToken);
+  const session = await verifySession(request);
 
   if (!session) {
     await logAuditEvent(
@@ -161,4 +161,3 @@ export async function requireAuth(request: NextRequest): Promise<NextResponse | 
 export function getSessionFromRequest(request: NextRequest) {
   return (request as any).session;
 }
-

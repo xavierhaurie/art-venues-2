@@ -8,18 +8,8 @@ import { verifySession } from '@/lib/session';
  */
 export async function POST(request: NextRequest) {
   try {
-    // Get session from cookie
-    const sessionToken = request.cookies.get('session')?.value;
-
-    if (!sessionToken) {
-      return NextResponse.json(
-        { error: 'No active session' },
-        { status: 400 }
-      );
-    }
-
     // Verify session
-    const session = verifySession(sessionToken);
+    const session = await verifySession(request);
 
     if (session) {
       // Revoke session in database
@@ -38,11 +28,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Clear session cookie
-    const response = NextResponse.json({
-      message: 'Logged out successfully',
-    });
+    const response = NextResponse.json(
+      { message: 'Logged out successfully' },
+      { status: 200 }
+    );
 
-    response.cookies.delete('session');
+    response.cookies.set('session', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 0,
+      path: '/',
+    });
 
     return response;
 
@@ -54,4 +51,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

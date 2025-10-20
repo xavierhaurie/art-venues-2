@@ -8,29 +8,19 @@ import { verifySession } from '@/lib/session';
  */
 export async function POST(request: NextRequest) {
   try {
-    // Get session from cookie
-    const sessionToken = request.cookies.get('session')?.value;
-    
-    if (!sessionToken) {
+    // Verify session
+    const session = await verifySession(request);
+
+    if (!session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
-    
-    // Verify session
-    const session = verifySession(sessionToken);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Invalid session' },
-        { status: 401 }
-      );
-    }
-    
+
     // Regenerate backup codes
     const backupCodes = await regenerateBackupCodes(session.userId);
-    
+
     // Log backup codes regenerated
     await logAuditEvent(
       'auth.backup_code.regenerated',
@@ -41,12 +31,12 @@ export async function POST(request: NextRequest) {
       request.ip,
       request.headers.get('user-agent') || undefined
     );
-    
+
     return NextResponse.json({
       backupCodes,
       message: 'New backup codes generated. Store them securely.',
     });
-    
+
   } catch (error) {
     console.error('Backup code generation error:', error);
     return NextResponse.json(
@@ -62,31 +52,21 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get session from cookie
-    const sessionToken = request.cookies.get('session')?.value;
-    
-    if (!sessionToken) {
+    // Verify session
+    const session = await verifySession(request);
+
+    if (!session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
-    
-    // Verify session
-    const session = verifySession(sessionToken);
-    
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Invalid session' },
-        { status: 401 }
-      );
-    }
-    
+
     // Get unused backup code count
     const count = await getUnusedBackupCodeCount(session.userId);
-    
+
     return NextResponse.json({ count });
-    
+
   } catch (error) {
     console.error('Backup code count error:', error);
     return NextResponse.json(
@@ -95,4 +75,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

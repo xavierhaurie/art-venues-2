@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { User, MagicLinkToken, OAuthAccount, BackupCode, UserSession } from '@/types/auth';
 import { hash, verifyHash, generateToken, generateBackupCodes } from './crypto';
-import { encryptTOTPSecret, generateTOTPSecret, generateQRCode } from './totp';
+import { encryptTOTPSecret, decryptTOTPSecret, generateTOTPSecret, generateOTPAuthUrl, generateQRCode } from './totp';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -179,7 +179,9 @@ export async function createOAuthAccount(
 // ==================== TOTP ====================
 
 export async function setupTOTP(userId: string, email: string): Promise<{ secret: string; qrCode: string; backupCodes: string[] }> {
-  // Generate TOTP secret
+  console.log('🔐 Generating NEW TOTP secret for user (forced refresh):', userId);
+
+  // Always generate a new secret to avoid any corruption issues
   const { secret, otpauth_url } = generateTOTPSecret(email);
   const encryptedSecret = encryptTOTPSecret(secret);
 
@@ -189,13 +191,22 @@ export async function setupTOTP(userId: string, email: string): Promise<{ secret
   // Generate backup codes
   const backupCodes = generateBackupCodes(10);
 
-  // Store encrypted secret
+  // Delete any existing backup codes first
+  await supabase
+    .from('backup_code')
+    .delete()
+    .eq('user_id', userId);
+
+  // Store encrypted secret (this will overwrite any existing secret)
   await supabase
     .from('app_user')
-    .update({ totp_secret: encryptedSecret })
+    .update({
+      totp_secret: encryptedSecret,
+      totp_enabled: false // Reset to ensure proper setup flow
+    })
     .eq('id', userId);
 
-  // Store backup codes (hashed)
+  // Store new backup codes (hashed)
   const backupCodeInserts = await Promise.all(
     backupCodes.map(async (code) => ({
       user_id: userId,
@@ -207,6 +218,9 @@ export async function setupTOTP(userId: string, email: string): Promise<{ secret
 
   // Log TOTP setup
   await logAuditEvent('auth.totp.setup', 'user', userId, { email });
+
+  console.log('🔐 New TOTP secret generated and stored');
+  console.log('🔐 Secret preview (first 10 chars):', secret.substring(0, 10));
 
   return { secret, qrCode, backupCodes };
 }
@@ -394,4 +408,3 @@ export async function logAuditEvent(
     console.error('Failed to log audit event:', error);
   }
 }
-

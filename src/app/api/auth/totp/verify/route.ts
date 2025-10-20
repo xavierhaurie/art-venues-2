@@ -159,26 +159,35 @@ export async function POST(request: NextRequest) {
       // Mark first login as completed
       await markFirstLoginCompleted(user.id);
 
-      const response = NextResponse.json({
-        message: 'TOTP enabled successfully',
-        sessionRotated: true,
-      });
+      // Set new session cookie
+      const response = NextResponse.json(
+        {
+          success: true,
+          message: 'TOTP setup completed successfully',
+          redirectTo: '/dashboard'
+        },
+        { status: 200 }
+      );
 
-      // Update session cookie
       response.cookies.set('session', newSessionToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60,
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60, // 24 hours
         path: '/',
       });
 
       return response;
+    } else {
+      // TOTP already enabled, just verify and continue
+      return NextResponse.json(
+        {
+          success: true,
+          message: 'TOTP verified successfully'
+        },
+        { status: 200 }
+      );
     }
-
-    return NextResponse.json({
-      message: 'TOTP verified successfully',
-    });
 
   } catch (error) {
     console.error('TOTP verification error:', error);
@@ -188,4 +197,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
