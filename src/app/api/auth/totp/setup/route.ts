@@ -8,22 +8,12 @@ import { verifySession } from '@/lib/session';
  */
 export async function POST(request: NextRequest) {
   try {
-    // Get session from cookie
-    const sessionToken = request.cookies.get('session')?.value;
-
-    if (!sessionToken) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     // Verify session
-    const session = verifySession(sessionToken);
+    const session = await verifySession(request);
 
     if (!session) {
       return NextResponse.json(
-        { error: 'Invalid session' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
@@ -43,6 +33,7 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json({
+      secret,
       qrCode,
       backupCodes,
       message: 'Scan the QR code with your authenticator app',

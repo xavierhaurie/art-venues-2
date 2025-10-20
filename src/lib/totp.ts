@@ -34,16 +34,21 @@ export async function generateQRCode(otpauthUrl: string): Promise<string> {
  */
 export function verifyTOTP(token: string, encryptedSecret: string): boolean {
   try {
+    console.log('🔐 Verifying TOTP token:', token);
     const secret = decrypt(encryptedSecret);
+    console.log('🔐 Decrypted secret (first 10 chars):', secret.substring(0, 10));
 
-    return speakeasy.totp.verify({
+    const result = speakeasy.totp.verify({
       secret,
       encoding: 'base32',
       token,
       window: 2, // Allow 2 time steps in either direction
     });
+
+    console.log('🔐 TOTP verification result:', result);
+    return result;
   } catch (error) {
-    console.error('Error verifying TOTP:', error);
+    console.error('🔐 Error verifying TOTP:', error);
     return false;
   }
 }
@@ -61,4 +66,3 @@ export function encryptTOTPSecret(secret: string): string {
 export function decryptTOTPSecret(encryptedSecret: string): string {
   return decrypt(encryptedSecret);
 }
-

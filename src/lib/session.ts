@@ -43,20 +43,26 @@ export async function verifySession(request: NextRequest): Promise<SessionData |
   try {
     const sessionCookie = request.cookies.get('session');
 
+    console.log('🔐 verifySession - cookie exists:', !!sessionCookie);
+
     if (!sessionCookie) {
+      console.log('🔐 verifySession - no cookie found');
       return null;
     }
 
+    console.log('🔐 verifySession - verifying JWT...');
     const decoded = jwt.verify(sessionCookie.value, JWT_SECRET) as SessionData;
+    console.log('🔐 verifySession - JWT valid, userId:', decoded.userId);
 
     // Check if session is expired
     if (decoded.exp < Math.floor(Date.now() / 1000)) {
+      console.log('🔐 verifySession - session expired');
       return null;
     }
 
     return decoded;
   } catch (error) {
-    console.error('Session verification error:', error);
+    console.error('🔐 verifySession error:', error);
     return null;
   }
 }
@@ -100,4 +106,3 @@ export function clearSessionCookie(): void {
   const cookieStore = cookies();
   cookieStore.delete('session');
 }
-

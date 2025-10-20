@@ -12,22 +12,20 @@ export async function POST(request: NextRequest) {
   try {
     const { token, isBackupCode } = await request.json();
 
-    // Get session from cookie
-    const sessionToken = request.cookies.get('session')?.value;
+    // Debug logging
+    console.log('🔍 TOTP verify - checking session cookie...');
+    const cookieCheck = request.cookies.get('session');
+    console.log('🔍 Session cookie exists:', !!cookieCheck);
 
-    if (!sessionToken) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Verify session
-    const session = verifySession(sessionToken);
+    // Verify session (pass request object, not token string)
+    const session = await verifySession(request);
+    console.log('🔍 Session verified:', !!session);
+    console.log('🔍 Session data:', session ? { userId: session.userId, email: session.email } : 'null');
 
     if (!session) {
+      console.error('❌ No valid session found');
       return NextResponse.json(
-        { error: 'Invalid session' },
+        { error: 'Unauthorized' },
         { status: 401 }
       );
     }
@@ -86,13 +84,21 @@ export async function POST(request: NextRequest) {
     } else {
       // Verify TOTP token
       if (!user.totp_secret) {
+        console.error('❌ No TOTP secret found for user');
         return NextResponse.json(
           { error: 'TOTP not set up' },
           { status: 400 }
         );
       }
 
+      console.log('🔐 User has TOTP secret, verifying token...');
+      console.log('🔐 Token from request:', token);
+      console.log('🔐 Token length:', token?.length);
+      console.log('🔐 Secret (encrypted) length:', user.totp_secret?.length);
+
       isValid = verifyTOTP(token, user.totp_secret);
+
+      console.log('🔐 Verification result:', isValid);
 
       if (isValid) {
         await logAuditEvent(
@@ -108,6 +114,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isValid) {
+      console.error('❌ TOTP verification failed');
       await logAuditEvent(
         'auth.totp.failed',
         'user',

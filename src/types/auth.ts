@@ -8,6 +8,7 @@ export interface User {
   name: string | null;
   role: UserRole;
   totp_enabled: boolean;
+  totp_secret: string | null;
   first_login_completed: boolean;
   last_login_at: string | null;
   created_at: string;
@@ -77,4 +78,3 @@ export interface TOTPSetupData {
   qrCode: string;
   backupCodes: string[];
 }
-

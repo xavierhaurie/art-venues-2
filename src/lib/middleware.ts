@@ -16,8 +16,8 @@ export async function authMiddleware(request: NextRequest) {
     );
   }
 
-  // Verify session token
-  const session = verifySession(sessionToken);
+  // Verify session token (pass the request, not the token string)
+  const session = await verifySession(request);
 
   if (!session) {
     return NextResponse.json(
@@ -59,7 +59,7 @@ export function requireRole(allowedRoles: string[]) {
 
     const session = getSession(request);
 
-    if (!allowedRoles.includes(session.role)) {
+    if (!session || !allowedRoles.includes(session.role)) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -69,4 +69,3 @@ export function requireRole(allowedRoles: string[]) {
     return null;
   };
 }
-
