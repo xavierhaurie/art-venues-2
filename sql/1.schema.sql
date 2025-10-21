@@ -82,42 +82,40 @@ CREATE TRIGGER trg_artist_media_updated BEFORE UPDATE ON artist_media
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- VENUES
+
 CREATE TABLE venue (
   id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  region_code        region_code NOT NULL,
   name               text NOT NULL,
-  type               text NOT NULL,
-  locality           text NOT NULL,
-  lat                double precision,
-  lng                double precision,
-  mbta               mbta_access,                         -- only for BOS
-  distance_km        numeric(8,3),
-  commission_pct     numeric(5,2),
-  fees               text,
-  insurance_req      boolean,
-  mediums            text[] NOT NULL DEFAULT '{}',
+  type               venue_type NOT NULL,
   website_url        text,
-  social             jsonb NOT NULL DEFAULT '{}',
-  blurb              text,
-  claimed_by_user_id uuid REFERENCES app_user(id),
+  region_code        region_code NOT NULL,
+  locality           text NOT NULL,
+  address            text,
+  public_transit     mbta_access,
+  map_link           text,
+  artist_summary     text,
+  visitor_summary    text,
+  facebook           text,
+  instagram          text,
   claim_status       venue_claim_status NOT NULL DEFAULT 'unclaimed',
+  claimed_by_user_id uuid REFERENCES app_user(id),
+  last_verified_at   timestamptz, NOT NULL DEFAULT NOW(),
   created_at         timestamptz NOT NULL DEFAULT NOW(),
   updated_at         timestamptz NOT NULL DEFAULT NOW(),
-  -- Generated full-text search vector (name + blurb)
+  -- Generated full-text search vector (name + summaries)
   search             tsvector GENERATED ALWAYS AS (
-                      to_tsvector('english', coalesce(name,'') || ' ' || coalesce(blurb,''))) STORED
+                      to_tsvector('english', coalesce(name,'') || ' ' || coalesce(artist_summary,'') || ' ' || coalesce(visitor_summary,''))) STORED
 );
 CREATE INDEX idx_venue_region      ON venue(region_code);
 CREATE INDEX idx_venue_locality    ON venue(locality);
 CREATE INDEX idx_venue_claim       ON venue(claim_status);
 CREATE INDEX idx_venue_claimed_by  ON venue(claimed_by_user_id);
-CREATE INDEX idx_venue_mediums     ON venue USING GIN (mediums);
 CREATE INDEX idx_venue_search_fts  ON venue USING GIN (search);
 -- Trigram index for fuzzy text search (only if pg_trgm extension is available)
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
-    EXECUTE 'CREATE INDEX idx_venue_trgm ON venue USING GIN ((coalesce(name,'''') || '' '' || coalesce(blurb,'''')) gin_trgm_ops)';
+    EXECUTE 'CREATE INDEX idx_venue_trgm ON venue USING GIN ((coalesce(name,'''') || '' '' || coalesce(artist_summary,'''') || '' '' || coalesce(visitor_summary,'''')) gin_trgm_ops)';
     RAISE NOTICE '✓ Created trigram index on venue table';
   ELSE
     RAISE NOTICE '⚠ Skipping trigram index on venue (pg_trgm not available)';
