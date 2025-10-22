@@ -92,14 +92,12 @@ CREATE TABLE venue (
   locality           text NOT NULL,
   address            text,
   public_transit     mbta_access,
-  map_link           text,
-  artist_summary     text,
-  visitor_summary    text,
   facebook           text,
   instagram          text,
   claim_status       venue_claim_status NOT NULL DEFAULT 'unclaimed',
   claimed_by_user_id uuid REFERENCES app_user(id),
-  last_verified_at   timestamptz, NOT NULL DEFAULT NOW(),
+  normalized_url     text NOT NULL UNIQUE,
+  last_verified_at   timestamptz,
   created_at         timestamptz NOT NULL DEFAULT NOW(),
   updated_at         timestamptz NOT NULL DEFAULT NOW(),
   -- Generated full-text search vector (name + summaries)
@@ -112,7 +110,6 @@ CREATE INDEX idx_venue_claim       ON venue(claim_status);
 CREATE INDEX idx_venue_claimed_by  ON venue(claimed_by_user_id);
 CREATE INDEX idx_venue_search_fts  ON venue USING GIN (search);
 -- Trigram index for fuzzy text search (only if pg_trgm extension is available)
-DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
     EXECUTE 'CREATE INDEX idx_venue_trgm ON venue USING GIN ((coalesce(name,'''') || '' '' || coalesce(artist_summary,'''') || '' '' || coalesce(visitor_summary,'''')) gin_trgm_ops)';

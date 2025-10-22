@@ -6,7 +6,7 @@ import { VenueListParams } from '@/types/venue';
  * GET /api/venues
  * List venues with paging, filters, and sorting
  *
- * AC: GET /venues supports page/page_size, filters: locality, type, mbta,
+ * AC: GET /venues supports page/page_size, filters: locality, type, public_transit,
  * has_open_call (stub false), sort by name/locality. p95 < 600ms @ 250 rows.
  */
 export async function GET(request: NextRequest) {
@@ -20,11 +20,11 @@ export async function GET(request: NextRequest) {
     // Parse filter parameters
     const locality = searchParams.get('locality') || undefined;
     const type = searchParams.get('type') || undefined;
-    const mbta = searchParams.get('mbta') as 'yes' | 'partial' | 'no' | undefined;
+    const public_transit = searchParams.get('public_transit') as 'yes' | 'partial' | 'no' | undefined;
     const has_open_call = searchParams.get('has_open_call') === 'true';
 
     // Parse sorting parameters
-    const sort = (searchParams.get('sort') || 'name') as 'name' | 'locality' | 'distance';
+    const sort = (searchParams.get('sort') || 'name') as 'name' | 'locality';
     const sort_order = (searchParams.get('sort_order') || 'asc') as 'asc' | 'desc';
 
     // Parse search query
@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
       page,
       page_size,
       locality,
-      type,
-      mbta,
+      type: type as any,
+      public_transit,
       has_open_call,
       sort,
       sort_order,
