@@ -26,7 +26,8 @@ CREATE TYPE subscription_status AS ENUM ('trialing','active','past_due','cancele
 CREATE TYPE credit_reason      AS ENUM ('data_fix','referral');
 CREATE TYPE comment_status     AS ENUM ('visible','hidden','flagged','deleted');
 CREATE TYPE region_code        AS ENUM ('BOS','LA','NYC');
-CREATE TYPE mbta_access        AS ENUM ('yes','partial','no');        -- BOS-specific
+CREATE TYPE public_transit_access AS ENUM ('yes','partial','no');        -- public transit access
+CREATE TYPE venue_type         AS ENUM ('gallery - commercial','gallery - non-profit','library','cafe-restaurant','association','market','store','online','open studios','public art','other');
 CREATE TYPE bookmark_target    AS ENUM ('venue','artist','blog_post');
 CREATE TYPE report_type        AS ENUM ('missing','incorrect');
 CREATE TYPE report_target      AS ENUM ('venue','open_call','artist_profile','blog_post','comment');
@@ -91,7 +92,10 @@ CREATE TABLE venue (
   region_code        region_code NOT NULL,
   locality           text NOT NULL,
   address            text,
-  public_transit     mbta_access,
+  public_transit     public_transit_access,
+  map_link           text,
+  artist_summary     text,
+  visitor_summary    text,
   facebook           text,
   instagram          text,
   claim_status       venue_claim_status NOT NULL DEFAULT 'unclaimed',
@@ -110,6 +114,7 @@ CREATE INDEX idx_venue_claim       ON venue(claim_status);
 CREATE INDEX idx_venue_claimed_by  ON venue(claimed_by_user_id);
 CREATE INDEX idx_venue_search_fts  ON venue USING GIN (search);
 -- Trigram index for fuzzy text search (only if pg_trgm extension is available)
+DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
     EXECUTE 'CREATE INDEX idx_venue_trgm ON venue USING GIN ((coalesce(name,'''') || '' '' || coalesce(artist_summary,'''') || '' '' || coalesce(visitor_summary,'''')) gin_trgm_ops)';

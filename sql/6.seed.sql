@@ -8,12 +8,12 @@
 BEGIN;
 
 -- Helper function to generate normalized URLs from venue names
-CREATE OR REPLACE FUNCTION generate_normalized_url(venue_name text, locality text)
+CREATE OR REPLACE FUNCTION generate_normalized_url(url text)
 RETURNS text AS $$
 BEGIN
   RETURN lower(
     regexp_replace(
-      regexp_replace(venue_name || '-' || locality, '[^a-zA-Z0-9\s-]', '', 'g'),
+      regexp_replace(url, '[^a-zA-Z0-9\s-]', '', 'g'),
       '\s+', '-', 'g'
     )
   );
@@ -24,37 +24,29 @@ $$ LANGUAGE plpgsql;
 -- This demonstrates the structure for bulk import
 
 INSERT INTO venue (
-  region_code,
   name,
   type,
+  website_url,
+  region_code,
   locality,
   address,
   public_transit,
-  map_link,
   artist_summary,
   visitor_summary,
-  website_url,
-  facebook,
-  instagram,
-  normalized_url,
-  claim_status
+  normalized_url
 ) VALUES
 -- Example venues (to be replaced with actual data)
 (
-  'BOS',
   'Sample Gallery',
   'gallery - commercial',
+  'https://example.com',
+  'BOS',
   'South End',
   '123 Main St, Boston, MA 02118',
   'yes',
-  NULL,
   'Contemporary art gallery focusing on emerging artists. Accepts portfolio submissions year-round.',
   'Visit us for rotating exhibitions of contemporary art from local and international artists.',
-  'https://example.com',
-  NULL,
-  NULL,
-  generate_normalized_url('Sample Gallery', 'South End'),
-  'unclaimed'
+  generate_normalized_url('https://example.com')
 )
 ON CONFLICT (normalized_url)
 DO UPDATE SET

@@ -39,7 +39,31 @@ export function createSession(userId: string, email: string, role: string): Sess
   return { token, jti, expiresAt };
 }
 
-export async function verifySession(request: NextRequest): Promise<SessionData | null> {
+// Overloaded function - can take either a token string or NextRequest
+export function verifySession(token: string): SessionData | null;
+export function verifySession(request: NextRequest): Promise<SessionData | null>;
+export function verifySession(tokenOrRequest: string | NextRequest): SessionData | null | Promise<SessionData | null> {
+  if (typeof tokenOrRequest === 'string') {
+    // Direct token verification for tests
+    try {
+      const decoded = jwt.verify(tokenOrRequest, JWT_SECRET) as SessionData;
+
+      // Check if session is expired
+      if (decoded.exp < Math.floor(Date.now() / 1000)) {
+        return null;
+      }
+
+      return decoded;
+    } catch (error) {
+      return null;
+    }
+  } else {
+    // NextRequest verification for middleware/API routes
+    return verifySessionFromRequest(tokenOrRequest);
+  }
+}
+
+async function verifySessionFromRequest(request: NextRequest): Promise<SessionData | null> {
   try {
     const sessionCookie = request.cookies.get('session');
 
@@ -63,6 +87,16 @@ export async function verifySession(request: NextRequest): Promise<SessionData |
     return decoded;
   } catch (error) {
     console.error('🔐 verifySession error:', error);
+    return null;
+  }
+}
+
+export function decodeSession(token: string): SessionData | null {
+  try {
+    // Decode without verification - useful for expired tokens or debugging
+    const decoded = jwt.decode(token) as SessionData;
+    return decoded;
+  } catch (error) {
     return null;
   }
 }
