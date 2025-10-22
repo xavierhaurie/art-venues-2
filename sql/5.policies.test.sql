@@ -27,8 +27,8 @@ ON CONFLICT (user_id) DO NOTHING;
 
 -- Test setup: Create test venues
 INSERT INTO venue (id, region_code, name, type, locality) VALUES
-  ('00000000-0000-0000-0000-000000000001', 'BOS', 'Test Venue 1', 'gallery', 'Boston'),
-  ('00000000-0000-0000-0000-000000000002', 'BOS', 'Test Venue 2', 'gallery', 'Cambridge')
+  ('00000000-0000-0000-0000-000000000001', 'BOS', 'Test Venue 1', 'gallery - commercial', 'Boston'),
+  ('00000000-0000-0000-0000-000000000002', 'BOS', 'Test Venue 2', 'gallery - non-profit', 'Cambridge')
 ON CONFLICT (id) DO NOTHING;
 
 -- Test setup: Create test notes

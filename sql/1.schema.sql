@@ -26,7 +26,6 @@ CREATE TYPE subscription_status AS ENUM ('trialing','active','past_due','cancele
 CREATE TYPE credit_reason      AS ENUM ('data_fix','referral');
 CREATE TYPE comment_status     AS ENUM ('visible','hidden','flagged','deleted');
 CREATE TYPE region_code        AS ENUM ('BOS','LA','NYC');
-CREATE TYPE public_transit_access AS ENUM ('yes','partial','no');        -- public transit access
 CREATE TYPE venue_type         AS ENUM ('gallery - commercial','gallery - non-profit','library','cafe-restaurant','association','market','store','online','open studios','public art','other');
 CREATE TYPE bookmark_target    AS ENUM ('venue','artist','blog_post');
 CREATE TYPE report_type        AS ENUM ('missing','incorrect');
@@ -87,12 +86,12 @@ CREATE TRIGGER trg_artist_media_updated BEFORE UPDATE ON artist_media
 CREATE TABLE venue (
   id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name               text NOT NULL,
-  type               venue_type NOT NULL,
+  type               venue_type NOT NULL DEFAULT 'other',
   website_url        text,
   region_code        region_code NOT NULL,
   locality           text NOT NULL,
   address            text,
-  public_transit     public_transit_access,
+  public_transit     text,
   map_link           text,
   artist_summary     text,
   visitor_summary    text,

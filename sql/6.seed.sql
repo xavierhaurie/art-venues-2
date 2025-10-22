@@ -5,20 +5,6 @@
 -- This file is idempotent - can be run multiple times safely
 -- Venues are inserted with ON CONFLICT DO UPDATE to handle re-runs
 
-BEGIN;
-
--- Helper function to generate normalized URLs from venue names
-CREATE OR REPLACE FUNCTION generate_normalized_url(url text)
-RETURNS text AS $$
-BEGIN
-  RETURN lower(
-    regexp_replace(
-      regexp_replace(url, '[^a-zA-Z0-9\s-]', '', 'g'),
-      '\s+', '-', 'g'
-    )
-  );
-END;
-$$ LANGUAGE plpgsql;
 
 -- Sample venue data (template - will be replaced with actual 250 venues)
 -- This demonstrates the structure for bulk import
@@ -46,7 +32,7 @@ INSERT INTO venue (
   'yes',
   'Contemporary art gallery focusing on emerging artists. Accepts portfolio submissions year-round.',
   'Visit us for rotating exhibitions of contemporary art from local and international artists.',
-  generate_normalized_url('https://example.com')
+  'example.com'
 )
 ON CONFLICT (normalized_url)
 DO UPDATE SET
