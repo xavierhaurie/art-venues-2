@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVenues, searchVenues, getVenueFilters } from '@/lib/venues';
 import { VenueListParams } from '@/types/venue';
+import { getSession } from '@/lib/session';
 
 /**
  * GET /api/venues
  * List venues with paging, filters, and sorting
- *
- * AC: GET /venues supports page/page_size, filters: locality, type, public_transit,
- * has_open_call (stub false), sort by name/locality. p95 < 600ms @ 250 rows.
+ * Includes user notes in the response via JOIN
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+
+    // Get current user session (if available)
+    const session = await getSession();
+    const userId = session?.userId;
 
     // Parse pagination parameters
     const page = parseInt(searchParams.get('page') || '1', 10);
@@ -43,7 +46,8 @@ export async function GET(request: NextRequest) {
     };
 
     // Use search function if query provided, otherwise use regular listing
-    const result = q ? await searchVenues(q, params) : await getVenues(params);
+    // Pass userId to include notes in the JOIN
+    const result = q ? await searchVenues(q, params, userId) : await getVenues(params, userId);
 
     // Add performance timing header for monitoring p95 latency
     const responseHeaders = new Headers();

@@ -20,6 +20,10 @@ interface Venue {
   facebook?: string;
   instagram?: string;
   created_at: string;
+  user_note?: {
+    id: string;
+    body: string;
+  } | null;
 }
 
 interface VenuesResponse {
@@ -86,6 +90,16 @@ export default function VenuesPage() {
       setCurrentPage(data.page);
       setTotalPages(data.total_pages);
       setError(null);
+
+      // Load user notes from the venue data (already included via JOIN)
+      const newUserVenueData: {[venueId: string]: UserVenueData} = {};
+      data.venues.forEach(venue => {
+        newUserVenueData[venue.id] = {
+          notes: venue.user_note?.body || '',
+          noteId: venue.user_note?.id
+        };
+      });
+      setUserVenueData(newUserVenueData);
     } catch (err) {
       setError('Failed to load venues');
       console.error('Error fetching venues:', err);
@@ -97,45 +111,6 @@ export default function VenuesPage() {
   useEffect(() => {
     fetchVenues();
   }, []);
-
-  useEffect(() => {
-    const loadNotesForVenues = async () => {
-      for (const venue of venues) {
-        if (!userVenueData[venue.id]) {
-          try {
-            const response = await fetch(`/api/venues/${venue.id}/notes`);
-            if (response.ok) {
-              const result = await response.json();
-              const note = result.note;
-              setUserVenueData(prev => ({
-                ...prev,
-                [venue.id]: {
-                  notes: note?.body || '',
-                  noteId: note?.id
-                }
-              }));
-            }
-          } catch (error) {
-            console.error('Failed to load notes for venue', venue.id, error);
-          }
-        }
-      }
-    };
-
-    if (venues.length > 0) {
-      loadNotesForVenues();
-    }
-  }, [venues]);
-
-  useEffect(() => {
-    const venueId = searchParams.get('id');
-    if (venueId && !selectedVenueId) {
-      const venue = venues.find(v => v.id === venueId);
-      if (venue) {
-        openModal(venueId);
-      }
-    }
-  }, [searchParams, venues, selectedVenueId, openModal]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

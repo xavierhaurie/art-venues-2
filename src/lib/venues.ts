@@ -11,7 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
  * AC: GET /venues supports page/page_size, filters: locality, type, public_transit,
  * has_open_call (stub false), sort by name/locality. p95 < 600ms @ 250 rows.
  */
-export async function getVenues(params: VenueListParams): Promise<VenueListResponse> {
+export async function getVenues(params: VenueListParams, userId?: string): Promise<VenueListResponse> {
   const {
     page = 1,
     page_size = 25,
@@ -26,10 +26,21 @@ export async function getVenues(params: VenueListParams): Promise<VenueListRespo
   // Calculate offset for pagination
   const offset = (page - 1) * page_size;
 
+  // Build the select with LEFT JOIN to notes
+  // If userId is provided, we'll fetch their notes for each venue
+  const selectClause = userId
+    ? 'id, name, type, locality, region_code, address, public_transit, website_url, map_link, artist_summary, visitor_summary, facebook, instagram, created_at, note(id, body, artist_user_id)'
+    : '*';
+
   // Start building the query
   let query = supabase
     .from('venue')
-    .select('*', { count: 'exact' });
+    .select(selectClause, { count: 'exact' });
+
+  // If userId provided, filter notes by user (but keep all venues via LEFT JOIN)
+  if (userId) {
+    query = query.or(`artist_user_id.eq.${userId},artist_user_id.is.null`, { foreignTable: 'note' });
+  }
 
   // Apply filters
   if (locality) {
@@ -45,9 +56,7 @@ export async function getVenues(params: VenueListParams): Promise<VenueListRespo
   }
 
   // Stub for has_open_call - will be implemented later
-  // For now, we always filter to venues without open calls (none exist yet)
   if (has_open_call) {
-    // This will return empty results until open calls are implemented
     query = query.eq('id', '00000000-0000-0000-0000-000000000000');
   }
 
@@ -65,11 +74,28 @@ export async function getVenues(params: VenueListParams): Promise<VenueListRespo
     throw new Error(`Failed to fetch venues: ${error.message}`);
   }
 
+  // Transform the data to include note in a flat structure
+  const venues = (data || []).map((venue: any) => {
+    if (userId && venue.note && Array.isArray(venue.note) && venue.note.length > 0) {
+      const userNote = venue.note.find((n: any) => n.artist_user_id === userId);
+      return {
+        ...venue,
+        user_note: userNote ? { id: userNote.id, body: userNote.body } : null,
+        note: undefined, // Remove the raw note array
+      };
+    }
+    return {
+      ...venue,
+      user_note: null,
+      note: undefined,
+    };
+  });
+
   const total = count || 0;
   const total_pages = Math.ceil(total / page_size);
 
   return {
-    venues: (data || []) as Venue[],
+    venues: venues as Venue[],
     total,
     page,
     page_size,
@@ -86,7 +112,8 @@ export async function getVenues(params: VenueListParams): Promise<VenueListRespo
  */
 export async function searchVenues(
   query: string,
-  params: VenueListParams
+  params: VenueListParams,
+  userId?: string
 ): Promise<VenueListResponse> {
   const {
     page = 1,
@@ -103,19 +130,29 @@ export async function searchVenues(
 
   if (!sanitizedQuery) {
     // If query is empty after sanitization, fall back to regular listing
-    return getVenues(params);
+    return getVenues(params, userId);
   }
 
   const offset = (page - 1) * page_size;
 
+  // Build the select with LEFT JOIN to notes
+  const selectClause = userId
+    ? 'id, name, type, locality, region_code, address, public_transit, website_url, map_link, artist_summary, visitor_summary, facebook, instagram, created_at, note(id, body, artist_user_id)'
+    : '*';
+
   // Use Supabase's textSearch for full-text search on the 'search' tsvector column
   let searchQuery = supabase
     .from('venue')
-    .select('*', { count: 'exact' })
+    .select(selectClause, { count: 'exact' })
     .textSearch('search', sanitizedQuery, {
       type: 'websearch',
       config: 'english',
     });
+
+  // If userId provided, filter notes by user (but keep all venues via LEFT JOIN)
+  if (userId) {
+    searchQuery = searchQuery.or(`artist_user_id.eq.${userId},artist_user_id.is.null`, { foreignTable: 'note' });
+  }
 
   // Apply filters
   if (locality) {
@@ -143,11 +180,28 @@ export async function searchVenues(
     throw new Error(`Failed to search venues: ${error.message}`);
   }
 
+  // Transform the data to include note in a flat structure
+  const venues = (data || []).map((venue: any) => {
+    if (userId && venue.note && Array.isArray(venue.note) && venue.note.length > 0) {
+      const userNote = venue.note.find((n: any) => n.artist_user_id === userId);
+      return {
+        ...venue,
+        user_note: userNote ? { id: userNote.id, body: userNote.body } : null,
+        note: undefined,
+      };
+    }
+    return {
+      ...venue,
+      user_note: null,
+      note: undefined,
+    };
+  });
+
   const total = count || 0;
   const total_pages = Math.ceil(total / page_size);
 
   return {
-    venues: (data || []) as Venue[],
+    venues: venues as Venue[],
     total,
     page,
     page_size,
@@ -239,3 +293,4 @@ export async function getVenueByUrl(normalized_url: string): Promise<Venue | nul
 
   return data as Venue;
 }
+
