@@ -3,6 +3,9 @@ import { verifySession } from '@/lib/session';
 import { isSessionRevoked, logAuditEvent } from '@/lib/db';
 import { UserRole } from '@/types/auth';
 
+// DEVELOPMENT MODE: Set to true to bypass authentication (NEVER in production!)
+const DEV_BYPASS_AUTH = process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true';
+
 /**
  * Role-based access control middleware
  * Checks if user has required role(s) for the endpoint
@@ -11,6 +14,12 @@ export async function withRoleCheck(
   request: NextRequest,
   allowedRoles: UserRole[]
 ): Promise<NextResponse | null> {
+  // DEVELOPMENT MODE: Bypass authentication if enabled
+  if (DEV_BYPASS_AUTH) {
+    console.log('⚠️  DEV MODE: Bypassing authentication');
+    return null; // null means "proceed"
+  }
+
   // Get session token from cookie
   const sessionToken = request.cookies.get('session')?.value;
 

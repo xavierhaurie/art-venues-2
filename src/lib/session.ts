@@ -5,6 +5,10 @@ import { cookies } from 'next/headers';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const SESSION_DURATION = parseInt(process.env.SESSION_DURATION || '604800'); // 7 days default
 
+// DEVELOPMENT MODE: Set to true to bypass authentication (NEVER in production!)
+const DEV_BYPASS_AUTH = process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true';
+const DEV_USER_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+
 export interface SessionData {
   userId: string;
   email: string;
@@ -102,6 +106,20 @@ export function decodeSession(token: string): SessionData | null {
 }
 
 export async function getSession(): Promise<SessionData | null> {
+  // DEVELOPMENT MODE: Return fake session if bypass enabled
+  if (DEV_BYPASS_AUTH) {
+    console.log('⚠️  DEV MODE: Returning fake session');
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      userId: DEV_USER_ID,
+      email: 'dev@example.com',
+      role: 'artist',
+      jti: 'dev-jti',
+      iat: now,
+      exp: now + SESSION_DURATION,
+    };
+  }
+
   try {
     const cookieStore = cookies();
     const sessionCookie = cookieStore.get('session');

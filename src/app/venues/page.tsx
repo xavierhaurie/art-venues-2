@@ -38,16 +38,8 @@ interface UserVenueData {
 }
 
 const STAR_COLORS = [
-  '#FF6B6B', // Red
-  '#4ECDC4', // Teal
-  '#45B7D1', // Blue
-  '#96CEB4', // Green
-  '#FFEAA7', // Yellow
-  '#DDA0DD', // Plum
-  '#98D8C8', // Mint
-  '#F7DC6F', // Gold
-  '#BB8FCE', // Lavender
-  '#85C1E9'  // Light Blue
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+  '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
 ];
 
 export default function VenuesPage() {
@@ -65,7 +57,6 @@ export default function VenuesPage() {
     public_transit: '',
   });
 
-  // User data for each venue (notes only, images in modal via store)
   const [userVenueData, setUserVenueData] = useState<{[venueId: string]: UserVenueData}>({});
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [savingNotes, setSavingNotes] = useState<{[venueId: string]: boolean}>({});
@@ -107,7 +98,6 @@ export default function VenuesPage() {
     fetchVenues();
   }, []);
 
-  // Load notes for venues when they are fetched
   useEffect(() => {
     const loadNotesForVenues = async () => {
       for (const venue of venues) {
@@ -117,7 +107,6 @@ export default function VenuesPage() {
             if (response.ok) {
               const result = await response.json();
               const note = result.note;
-
               setUserVenueData(prev => ({
                 ...prev,
                 [venue.id]: {
@@ -138,7 +127,6 @@ export default function VenuesPage() {
     }
   }, [venues]);
 
-  // Handle route synchronization for modal
   useEffect(() => {
     const venueId = searchParams.get('id');
     if (venueId && !selectedVenueId) {
@@ -175,7 +163,6 @@ export default function VenuesPage() {
   };
 
   const handleNotesChange = (venueId: string, notes: string) => {
-    // Update local state immediately
     setUserVenueData(prev => ({
       ...prev,
       [venueId]: {
@@ -184,12 +171,10 @@ export default function VenuesPage() {
       }
     }));
 
-    // Clear existing timeout
     if (noteTimeouts.current[venueId]) {
       clearTimeout(noteTimeouts.current[venueId]);
     }
 
-    // Set new timeout for auto-save
     noteTimeouts.current[venueId] = setTimeout(() => {
       saveNotes(venueId, notes);
     }, 500);
@@ -282,25 +267,18 @@ export default function VenuesPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-6">Art Venues</h1>
 
-        {/* Star Legend */}
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
           <h3 className="text-sm font-semibold mb-2">Star Colors Legend:</h3>
           <div className="flex flex-wrap gap-3">
             {STAR_COLORS.map((color, index) => (
               <div key={index} className="flex items-center gap-1">
-                <span
-                  className="w-4 h-4"
-                  style={{ color: color, fill: color }}
-                >
-                  ★
-                </span>
+                <span className="w-4 h-4" style={{ color: color, fill: color }}>★</span>
                 <span className="text-xs">Star {index + 1}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Search and Filters */}
         <div className="mb-6 space-y-4">
           <form onSubmit={handleSearch} className="flex gap-2">
             <input
@@ -370,7 +348,6 @@ export default function VenuesPage() {
           </div>
         )}
 
-        {/* Venues Table */}
         <div className="overflow-x-auto border border-gray-300 rounded-lg">
           <table className="w-full text-sm border-collapse">
             <thead className="bg-gray-100 border-b border-gray-300">
@@ -457,7 +434,6 @@ export default function VenuesPage() {
           </table>
         </div>
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <div className="mt-6 flex justify-center gap-2">
             <button
@@ -481,7 +457,6 @@ export default function VenuesPage() {
         )}
       </div>
 
-      {/* Modal */}
       {selectedVenue && (
         <VenueModal
           venue={selectedVenue}
@@ -491,3 +466,4 @@ export default function VenuesPage() {
     </div>
   );
 }
+

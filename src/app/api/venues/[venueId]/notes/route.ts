@@ -3,9 +3,12 @@ import { requireArtist } from '@/lib/rbac';
 import { getSession } from '@/lib/session';
 import { createClient } from '@supabase/supabase-js';
 
+const DEV_BYPASS_AUTH = process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true';
+
+// Use service role key in dev bypass mode to skip RLS policies
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  DEV_BYPASS_AUTH ? process.env.SUPABASE_SERVICE_ROLE_KEY! : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 export async function GET(
@@ -130,4 +133,3 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to save note' }, { status: 500 });
   }
 }
-
