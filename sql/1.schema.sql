@@ -177,27 +177,6 @@ CREATE INDEX idx_venue_image_order ON venue_image(artist_user_id, venue_id, disp
 CREATE TRIGGER trg_venue_image_updated BEFORE UPDATE ON venue_image
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- NOTES (attachments total ≤10MB per note; enforced via total_bytes field)
-CREATE TABLE note (
-  id                       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  artist_user_id           uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
-  venue_id                 uuid NOT NULL REFERENCES venue(id) ON DELETE CASCADE,
-  body                     text NOT NULL,
-  attachments_meta         jsonb NOT NULL DEFAULT '{}',
-  attachments_total_bytes  integer NOT NULL DEFAULT 0 CHECK (attachments_total_bytes <= 10485760),
-  created_at               timestamptz NOT NULL DEFAULT NOW(),
-  updated_at               timestamptz NOT NULL DEFAULT NOW(),
-  search                   tsvector GENERATED ALWAYS AS (to_tsvector('english', coalesce(body,''))) STORED
-);
-CREATE INDEX idx_note_artist_venue ON note(artist_user_id, venue_id);
-CREATE INDEX idx_note_search_fts   ON note USING GIN (search);
--- Trigram index for fuzzy text search (only if pg_trgm extension is available)
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
-    EXECUTE 'CREATE INDEX idx_note_trgm ON note USING GIN (body gin_trgm_ops)';
-    RAISE NOTICE '✓ Created trigram index on note table';
-  ELSE
     RAISE NOTICE '⚠ Skipping trigram index on note (pg_trgm not available)';
   END IF;
 EXCEPTION

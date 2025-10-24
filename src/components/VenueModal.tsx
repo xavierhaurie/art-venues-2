@@ -23,9 +23,10 @@ interface Venue {
 interface VenueModalProps {
   venue: Venue;
   onClose: () => void;
+  onNoteSaved?: (venueId: string, noteBody: string, noteId?: string) => void;
 }
 
-export default function VenueModal({ venue, onClose }: VenueModalProps) {
+export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalProps) {
   const [localNotes, setLocalNotes] = useState('');
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -127,6 +128,11 @@ export default function VenueModal({ venue, onClose }: VenueModalProps) {
       if (response.ok) {
         const data = await response.json();
         setNote(venue.id, data.note || { body: '', venue_id: venue.id });
+
+        // Notify parent component of the save
+        if (onNoteSaved) {
+          onNoteSaved(venue.id, data.note?.body || '', data.note?.id);
+        }
       }
     } catch (error) {
       console.error('Failed to save notes:', error);
@@ -602,4 +608,3 @@ export default function VenueModal({ venue, onClose }: VenueModalProps) {
 
   return createPortal(modalContent, document.body);
 }
-

@@ -173,6 +173,17 @@ export default function VenuesPage() {
             noteId: data.note?.id
           }
         }));
+
+        // Refocus the textarea after saving if it's still being edited
+        setTimeout(() => {
+          if (editingNote === venueId) {
+            const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+            if (textarea) {
+              textarea.focus();
+              textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            }
+          }
+        }, 50);
       }
     } catch (error) {
       console.error('Failed to save note:', error);
@@ -414,17 +425,19 @@ export default function VenuesPage() {
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="px-4 py-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             >
               Previous
             </button>
-            <span className="px-4 py-2">
+
+            <span className="px-3 py-1">
               Page {currentPage} of {totalPages}
             </span>
+
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="px-4 py-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             >
               Next
             </button>
@@ -435,10 +448,10 @@ export default function VenuesPage() {
       {selectedVenue && (
         <VenueModal
           venue={selectedVenue}
+          isOpen={!!selectedVenueId}
           onClose={handleCloseModal}
         />
       )}
     </div>
   );
 }
-
