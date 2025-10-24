@@ -156,6 +156,27 @@ CREATE TABLE venue_claim (
 );
 CREATE INDEX idx_venue_claim_venue ON venue_claim(venue_id);
 
+-- VENUE IMAGES (uploaded by artists for their reference)
+CREATE TABLE venue_image (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  venue_id        uuid NOT NULL REFERENCES venue(id) ON DELETE CASCADE,
+  artist_user_id  uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  file_path       text NOT NULL,
+  url             text NOT NULL,
+  title           text,
+  details         text,
+  display_order   integer NOT NULL DEFAULT 1,
+  file_size       integer NOT NULL,
+  mime_type       text NOT NULL,
+  created_at      timestamptz NOT NULL DEFAULT NOW(),
+  updated_at      timestamptz NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_venue_image_venue ON venue_image(venue_id);
+CREATE INDEX idx_venue_image_artist ON venue_image(artist_user_id);
+CREATE INDEX idx_venue_image_order ON venue_image(artist_user_id, venue_id, display_order);
+CREATE TRIGGER trg_venue_image_updated BEFORE UPDATE ON venue_image
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- NOTES (attachments total ≤10MB per note; enforced via total_bytes field)
 CREATE TABLE note (
   id                       uuid PRIMARY KEY DEFAULT gen_random_uuid(),

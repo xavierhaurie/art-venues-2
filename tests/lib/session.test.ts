@@ -1,4 +1,4 @@
-import { createSession, verifySession, decodeSession } from '@/lib/session';
++import { createSession, verifySession, decodeSession } from '@/lib/session';
 
 describe('Session utilities', () => {
   describe('createSession', () => {
@@ -6,9 +6,9 @@ describe('Session utilities', () => {
       const userId = 'user-123';
       const email = 'test@example.com';
       const role = 'artist';
-      
+
       const { token, jti, expiresAt } = createSession(userId, email, role);
-      
+
       expect(token).toBeTruthy();
       expect(jti).toBeTruthy();
       expect(expiresAt).toBeInstanceOf(Date);
@@ -18,14 +18,14 @@ describe('Session utilities', () => {
     it('should create sessions with unique JTI', () => {
       const session1 = createSession('user-1', 'test1@example.com', 'artist');
       const session2 = createSession('user-1', 'test1@example.com', 'artist');
-      
+
       expect(session1.jti).not.toBe(session2.jti);
     });
 
     it('should set expiry to 7 days from now', () => {
       const { expiresAt } = createSession('user-1', 'test@example.com', 'artist');
       const expectedExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      
+
       // Allow 1 second tolerance
       expect(Math.abs(expiresAt.getTime() - expectedExpiry.getTime())).toBeLessThan(1000);
     });
@@ -36,10 +36,10 @@ describe('Session utilities', () => {
       const userId = 'user-123';
       const email = 'test@example.com';
       const role = 'artist';
-      
+
       const { token } = createSession(userId, email, role);
       const payload = verifySession(token);
-      
+
       expect(payload).toBeTruthy();
       expect(payload?.userId).toBe(userId);
       expect(payload?.email).toBe(email);
@@ -64,10 +64,10 @@ describe('Session utilities', () => {
       const userId = 'user-123';
       const email = 'test@example.com';
       const role = 'artist';
-      
+
       const { token } = createSession(userId, email, role);
       const payload = decodeSession(token);
-      
+
       expect(payload).toBeTruthy();
       expect(payload?.userId).toBe(userId);
       expect(payload?.email).toBe(email);

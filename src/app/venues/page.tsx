@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import VenueModal from '@/components/VenueModal';
+import { useVenueStore } from '@/lib/store/venueStore';
 
 interface Venue {
   id: string;
@@ -10,7 +12,7 @@ interface Venue {
   locality: string;
   region_code: string;
   address?: string;
-  public_transit?: 'yes' | 'partial' | 'no';
+  public_transit?: string;
   website_url?: string;
   map_link?: string;
   artist_summary?: string;
@@ -31,17 +33,8 @@ interface VenuesResponse {
 }
 
 interface UserVenueData {
-  stars: number[];
   notes: string;
-  images: string[];
-}
-
-interface ColumnVisibility {
-  [key: string]: boolean;
-}
-
-interface ColumnWidths {
-  [key: string]: number;
+  noteId?: string;
 }
 
 const STAR_COLORS = [
@@ -57,23 +50,9 @@ const STAR_COLORS = [
   '#85C1E9'  // Light Blue
 ];
 
-const DEFAULT_COLUMN_WIDTHS = {
-  stars: 120,
-  images: 80,
-  notes: 200,
-  name: 200,
-  type: 150,
-  locality: 120,
-  website_url: 150,
-  artist_summary: 250,
-  visitor_summary: 250,
-  instagram: 100,
-  facebook: 100,
-  address: 200,
-  public_transit: 100,
-};
-
 export default function VenuesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,31 +65,13 @@ export default function VenuesPage() {
     public_transit: '',
   });
 
-  // User data for each venue
+  // User data for each venue (notes only, images in modal via store)
   const [userVenueData, setUserVenueData] = useState<{[venueId: string]: UserVenueData}>({});
   const [editingNote, setEditingNote] = useState<string | null>(null);
+  const [savingNotes, setSavingNotes] = useState<{[venueId: string]: boolean}>({});
+  const noteTimeouts = useRef<{[venueId: string]: NodeJS.Timeout}>({});
 
-  // Column management
-  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibility>({
-    stars: true,
-    images: true,
-    notes: true,
-    name: true,
-    type: true,
-    locality: true,
-    website_url: true,
-    artist_summary: true,
-    visitor_summary: true,
-    instagram: true,
-    facebook: true,
-    address: true,
-    public_transit: true,
-  });
-
-  const [columnWidths, setColumnWidths] = useState<ColumnWidths>(DEFAULT_COLUMN_WIDTHS);
-  const [resizing, setResizing] = useState<{column: string, startX: number, startWidth: number} | null>(null);
-
-  const tableRef = useRef<HTMLTableElement>(null);
+  const { selectedVenueId, openModal, closeModal } = useVenueStore();
 
   const fetchVenues = async (page = 1, search = '', filterParams = filters) => {
     try {
@@ -146,22 +107,47 @@ export default function VenuesPage() {
     fetchVenues();
   }, []);
 
-  // Initialize user data for venues
+  // Load notes for venues when they are fetched
   useEffect(() => {
-    const newUserData: {[venueId: string]: UserVenueData} = {};
-    venues.forEach(venue => {
-      if (!userVenueData[venue.id]) {
-        newUserData[venue.id] = {
-          stars: [],
-          notes: '',
-          images: []
-        };
+    const loadNotesForVenues = async () => {
+      for (const venue of venues) {
+        if (!userVenueData[venue.id]) {
+          try {
+            const response = await fetch(`/api/venues/${venue.id}/notes`);
+            if (response.ok) {
+              const result = await response.json();
+              const note = result.note;
+
+              setUserVenueData(prev => ({
+                ...prev,
+                [venue.id]: {
+                  notes: note?.body || '',
+                  noteId: note?.id
+                }
+              }));
+            }
+          } catch (error) {
+            console.error('Failed to load notes for venue', venue.id, error);
+          }
+        }
       }
-    });
-    if (Object.keys(newUserData).length > 0) {
-      setUserVenueData(prev => ({ ...prev, ...newUserData }));
+    };
+
+    if (venues.length > 0) {
+      loadNotesForVenues();
     }
   }, [venues]);
+
+  // Handle route synchronization for modal
+  useEffect(() => {
+    const venueId = searchParams.get('id');
+    if (venueId && !selectedVenueId) {
+      const venue = venues.find(v => v.id === venueId);
+      if (venue) {
+        openModal(venueId);
+      }
+    }
+  }, [searchParams, venues, selectedVenueId, openModal]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,19 +164,18 @@ export default function VenuesPage() {
     fetchVenues(newPage, searchQuery, filters);
   };
 
-  const handleStarClick = (venueId: string, starIndex: number) => {
-    setUserVenueData(prev => ({
-      ...prev,
-      [venueId]: {
-        ...prev[venueId],
-        stars: prev[venueId].stars.includes(starIndex)
-          ? prev[venueId].stars.filter(s => s !== starIndex)
-          : [...prev[venueId].stars, starIndex]
-      }
-    }));
+  const handleVenueClick = (venueId: string) => {
+    openModal(venueId);
+    router.push(`/venues?id=${venueId}`, { scroll: false });
+  };
+
+  const handleCloseModal = () => {
+    closeModal();
+    router.push('/venues', { scroll: false });
   };
 
   const handleNotesChange = (venueId: string, notes: string) => {
+    // Update local state immediately
     setUserVenueData(prev => ({
       ...prev,
       [venueId]: {
@@ -198,73 +183,42 @@ export default function VenuesPage() {
         notes
       }
     }));
-  };
 
-  const toggleColumn = (columnKey: string) => {
-    setColumnVisibility(prev => ({
-      ...prev,
-      [columnKey]: !prev[columnKey]
-    }));
-  };
-
-  const handleMouseDown = (e: React.MouseEvent, column: string) => {
-    setResizing({
-      column,
-      startX: e.clientX,
-      startWidth: columnWidths[column]
-    });
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!resizing) return;
-
-    const diff = e.clientX - resizing.startX;
-    const newWidth = Math.max(100, Math.min(500, resizing.startWidth + diff));
-
-    setColumnWidths(prev => ({
-      ...prev,
-      [resizing.column]: newWidth
-    }));
-  };
-
-  const handleMouseUp = () => {
-    setResizing(null);
-  };
-
-  useEffect(() => {
-    if (resizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
+    // Clear existing timeout
+    if (noteTimeouts.current[venueId]) {
+      clearTimeout(noteTimeouts.current[venueId]);
     }
-  }, [resizing]);
 
-  const renderStarCell = (venueId: string) => {
-    const venueData = userVenueData[venueId];
-    if (!venueData) return null;
+    // Set new timeout for auto-save
+    noteTimeouts.current[venueId] = setTimeout(() => {
+      saveNotes(venueId, notes);
+    }, 500);
+  };
 
-    return (
-      <div className="flex flex-wrap gap-1 p-2">
-        {STAR_COLORS.map((color, index) => (
-          <button
-            key={index}
-            onClick={() => handleStarClick(venueId, index)}
-            className="w-4 h-4 transition-all hover:scale-110"
-            style={{
-              color: color,
-              fill: venueData.stars.includes(index) ? color : 'transparent',
-              stroke: color,
-              strokeWidth: 1
-            }}
-          >
-            ★
-          </button>
-        ))}
-      </div>
-    );
+  const saveNotes = async (venueId: string, noteBody: string) => {
+    setSavingNotes(prev => ({ ...prev, [venueId]: true }));
+    try {
+      const response = await fetch(`/api/venues/${venueId}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: noteBody }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserVenueData(prev => ({
+          ...prev,
+          [venueId]: {
+            notes: data.note?.body || '',
+            noteId: data.note?.id
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to save note:', error);
+    } finally {
+      setSavingNotes(prev => ({ ...prev, [venueId]: false }));
+    }
   };
 
   const renderNotesCell = (venueId: string) => {
@@ -272,70 +226,56 @@ export default function VenuesPage() {
     if (!venueData) return null;
 
     const isEditing = editingNote === venueId;
+    const isSaving = savingNotes[venueId];
 
     return (
-      <div className="p-2">
+      <div className="p-2 relative">
         {isEditing ? (
           <textarea
             value={venueData.notes}
             onChange={(e) => handleNotesChange(venueId, e.target.value)}
             onBlur={() => setEditingNote(null)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && e.ctrlKey) {
+              if (e.key === 'Enter') {
+                e.preventDefault();
                 setEditingNote(null);
               }
               if (e.key === 'Escape') {
                 setEditingNote(null);
               }
             }}
-            className="w-full h-20 p-1 border rounded resize-none text-sm"
+            className="w-full min-h-[60px] p-2 border border-gray-300 rounded resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             autoFocus
             placeholder="Add notes..."
           />
         ) : (
           <div
             onClick={() => setEditingNote(venueId)}
-            className="min-h-[20px] cursor-text hover:bg-gray-50 p-1 rounded text-sm"
+            className="min-w-[100px] min-h-[20px] cursor-text hover:bg-gray-100 p-2 rounded text-sm border border-transparent"
+            style={{
+              borderRadius: '5px',
+              border: venueData.notes ? 'none' : '1px solid #d1d5db'
+            }}
           >
-            {venueData.notes || <span className="text-gray-400">Click to add notes...</span>}
+            {venueData.notes || ''}
           </div>
         )}
-      </div>
-    );
-  };
-
-  const renderImagesCell = (venueId: string) => {
-    const venueData = userVenueData[venueId];
-    if (!venueData) return null;
-
-    return (
-      <div className="flex items-center gap-1 p-2">
-        {venueData.images.slice(0, 2).map((image, index) => (
-          <img
-            key={index}
-            src={image}
-            alt=""
-            className="w-8 h-8 object-cover rounded cursor-pointer hover:opacity-80"
-            onClick={() => {/* Open gallery */}}
-          />
-        ))}
-        {venueData.images.length > 2 && (
-          <span className="text-xs text-gray-500">+{venueData.images.length - 2}</span>
+        {isSaving && (
+          <div className="absolute top-1 right-1 text-xs text-gray-500">Saving...</div>
         )}
-        <button className="w-8 h-8 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-gray-400 hover:text-gray-600">
-          +
-        </button>
       </div>
     );
   };
 
   if (loading && venues.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 font-sans">
         <div className="text-center">Loading venues...</div>
       </div>
     );
   }
+
+  const selectedVenue = selectedVenueId ? venues.find(v => v.id === selectedVenueId) : null;
 
   return (
     <div className="container mx-auto px-4 py-8 font-sans">
@@ -424,26 +364,6 @@ export default function VenuesPage() {
           </div>
         </div>
 
-        {/* Column Visibility Controls */}
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-          <h3 className="text-sm font-semibold mb-2">Show/Hide Columns:</h3>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(columnVisibility).map(([key, visible]) => (
-              <button
-                key={key}
-                onClick={() => toggleColumn(key)}
-                className={`px-2 py-1 text-xs rounded ${
-                  visible 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                }`}
-              >
-                {key.replace('_', ' ')}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md">
             {error}
@@ -452,307 +372,107 @@ export default function VenuesPage() {
 
         {/* Venues Table */}
         <div className="overflow-x-auto border border-gray-300 rounded-lg">
-          <table ref={tableRef} className="w-full text-sm border-collapse">
+          <table className="w-full text-sm border-collapse">
             <thead className="bg-gray-100 border-b border-gray-300">
               <tr>
-                {columnVisibility.stars && (
-                  <th
-                    style={{ width: columnWidths.stars }}
-                    className="relative px-2 py-3 text-left font-semibold border-r border-gray-300"
-                  >
-                    Stars
-                    <div
-                      className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-300"
-                      onMouseDown={(e) => handleMouseDown(e, 'stars')}
-                    />
-                  </th>
-                )}
-                {columnVisibility.images && (
-                  <th
-                    style={{ width: columnWidths.images }}
-                    className="relative px-2 py-3 text-left font-semibold border-r border-gray-300"
-                  >
-                    Images
-                    <div
-                      className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-300"
-                      onMouseDown={(e) => handleMouseDown(e, 'images')}
-                    />
-                  </th>
-                )}
-                {columnVisibility.notes && (
-                  <th
-                    style={{ width: columnWidths.notes }}
-                    className="relative px-2 py-3 text-left font-semibold border-r border-gray-300"
-                  >
-                    Notes
-                    <div
-                      className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-300"
-                      onMouseDown={(e) => handleMouseDown(e, 'notes')}
-                    />
-                  </th>
-                )}
-                {columnVisibility.name && (
-                  <th
-                    style={{ width: columnWidths.name }}
-                    className="relative px-2 py-3 text-left font-semibold border-r border-gray-300"
-                  >
-                    Name
-                    <div
-                      className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-300"
-                      onMouseDown={(e) => handleMouseDown(e, 'name')}
-                    />
-                  </th>
-                )}
-                {columnVisibility.type && (
-                  <th
-                    style={{ width: columnWidths.type }}
-                    className="relative px-2 py-3 text-left font-semibold border-r border-gray-300"
-                  >
-                    Type
-                    <div
-                      className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-300"
-                      onMouseDown={(e) => handleMouseDown(e, 'type')}
-                    />
-                  </th>
-                )}
-                {columnVisibility.locality && (
-                  <th
-                    style={{ width: columnWidths.locality }}
-                    className="relative px-2 py-3 text-left font-semibold border-r border-gray-300"
-                  >
-                    Locality
-                    <div
-                      className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-300"
-                      onMouseDown={(e) => handleMouseDown(e, 'locality')}
-                    />
-                  </th>
-                )}
-                {columnVisibility.website_url && (
-                  <th
-                    style={{ width: columnWidths.website_url }}
-                    className="relative px-2 py-3 text-left font-semibold border-r border-gray-300"
-                  >
-                    Website
-                    <div
-                      className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-300"
-                      onMouseDown={(e) => handleMouseDown(e, 'website_url')}
-                    />
-                  </th>
-                )}
-                {columnVisibility.artist_summary && (
-                  <th
-                    style={{ width: columnWidths.artist_summary }}
-                    className="relative px-2 py-3 text-left font-semibold border-r border-gray-300"
-                  >
-                    Artist Summary
-                    <div
-                      className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-300"
-                      onMouseDown={(e) => handleMouseDown(e, 'artist_summary')}
-                    />
-                  </th>
-                )}
-                {columnVisibility.visitor_summary && (
-                  <th
-                    style={{ width: columnWidths.visitor_summary }}
-                    className="relative px-2 py-3 text-left font-semibold border-r border-gray-300"
-                  >
-                    Visitor Summary
-                    <div
-                      className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-300"
-                      onMouseDown={(e) => handleMouseDown(e, 'visitor_summary')}
-                    />
-                  </th>
-                )}
-                {columnVisibility.instagram && (
-                  <th
-                    style={{ width: columnWidths.instagram }}
-                    className="relative px-2 py-3 text-left font-semibold border-r border-gray-300"
-                  >
-                    Instagram
-                    <div
-                      className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-300"
-                      onMouseDown={(e) => handleMouseDown(e, 'instagram')}
-                    />
-                  </th>
-                )}
-                {columnVisibility.facebook && (
-                  <th
-                    style={{ width: columnWidths.facebook }}
-                    className="relative px-2 py-3 text-left font-semibold border-r border-gray-300"
-                  >
-                    Facebook
-                    <div
-                      className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-300"
-                      onMouseDown={(e) => handleMouseDown(e, 'facebook')}
-                    />
-                  </th>
-                )}
-                {columnVisibility.address && (
-                  <th
-                    style={{ width: columnWidths.address }}
-                    className="relative px-2 py-3 text-left font-semibold border-r border-gray-300"
-                  >
-                    Address
-                    <div
-                      className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-blue-300"
-                      onMouseDown={(e) => handleMouseDown(e, 'address')}
-                    />
-                  </th>
-                )}
-                {columnVisibility.public_transit && (
-                  <th
-                    style={{ width: columnWidths.public_transit }}
-                    className="px-2 py-3 text-left font-semibold"
-                  >
-                    Public Transit
-                  </th>
-                )}
+                <th className="p-2 text-left font-semibold border-r border-gray-300">Notes</th>
+                <th className="p-2 text-left font-semibold border-r border-gray-300">Name</th>
+                <th className="p-2 text-left font-semibold border-r border-gray-300">Type</th>
+                <th className="p-2 text-left font-semibold border-r border-gray-300">Locality</th>
+                <th className="p-2 text-left font-semibold border-r border-gray-300">Website</th>
+                <th className="p-2 text-left font-semibold border-r border-gray-300">Artist Summary</th>
+                <th className="p-2 text-left font-semibold border-r border-gray-300">Visitor Summary</th>
+                <th className="p-2 text-left font-semibold border-r border-gray-300">Instagram</th>
+                <th className="p-2 text-left font-semibold border-r border-gray-300">Facebook</th>
+                <th className="p-2 text-left font-semibold border-r border-gray-300">Address</th>
+                <th className="p-2 text-left font-semibold">Public Transit</th>
               </tr>
             </thead>
             <tbody>
-              {venues.map((venue) => (
-                <tr key={venue.id} className="border-b border-gray-200 hover:bg-gray-50">
-                  {columnVisibility.stars && (
-                    <td className="border-r border-gray-200" style={{ width: columnWidths.stars }}>
-                      {renderStarCell(venue.id)}
-                    </td>
-                  )}
-                  {columnVisibility.images && (
-                    <td className="border-r border-gray-200" style={{ width: columnWidths.images }}>
-                      {renderImagesCell(venue.id)}
-                    </td>
-                  )}
-                  {columnVisibility.notes && (
-                    <td className="border-r border-gray-200" style={{ width: columnWidths.notes }}>
-                      {renderNotesCell(venue.id)}
-                    </td>
-                  )}
-                  {columnVisibility.name && (
-                    <td className="border-r border-gray-200 p-2" style={{ width: columnWidths.name }}>
-                      <Link
-                        href={`/venues/${venue.id}`}
-                        className="text-blue-600 hover:text-blue-800 font-medium"
+              {venues.map((venue, index) => (
+                <tr
+                  key={venue.id}
+                  className={index % 2 === 0 ? 'bg-green-50' : 'bg-white'}
+                >
+                  <td className="p-0 border-r border-gray-200" style={{ minWidth: '100px', maxWidth: '300px' }}>
+                    {renderNotesCell(venue.id)}
+                  </td>
+                  <td className="p-2 border-r border-gray-200">
+                    <button
+                      onClick={() => handleVenueClick(venue.id)}
+                      className="text-blue-600 hover:text-blue-800 hover:underline text-left"
+                    >
+                      {venue.name}
+                    </button>
+                  </td>
+                  <td className="p-2 border-r border-gray-200">{venue.type}</td>
+                  <td className="p-2 border-r border-gray-200">{venue.locality}</td>
+                  <td className="p-2 border-r border-gray-200">
+                    {venue.website_url && (
+                      <a
+                        href={venue.website_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline"
                       >
-                        {venue.name}
-                      </Link>
-                    </td>
-                  )}
-                  {columnVisibility.type && (
-                    <td className="border-r border-gray-200 p-2" style={{ width: columnWidths.type }}>
-                      {venue.type}
-                    </td>
-                  )}
-                  {columnVisibility.locality && (
-                    <td className="border-r border-gray-200 p-2" style={{ width: columnWidths.locality }}>
-                      {venue.locality}
-                    </td>
-                  )}
-                  {columnVisibility.website_url && (
-                    <td className="border-r border-gray-200 p-2" style={{ width: columnWidths.website_url }}>
-                      {venue.website_url && (
-                        <a
-                          href={venue.website_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 truncate block"
-                        >
-                          {venue.website_url.replace(/^https?:\/\//, '')}
-                        </a>
-                      )}
-                    </td>
-                  )}
-                  {columnVisibility.artist_summary && (
-                    <td className="border-r border-gray-200 p-2" style={{ width: columnWidths.artist_summary }}>
-                      <div className="truncate" title={venue.artist_summary}>
-                        {venue.artist_summary}
-                      </div>
-                    </td>
-                  )}
-                  {columnVisibility.visitor_summary && (
-                    <td className="border-r border-gray-200 p-2" style={{ width: columnWidths.visitor_summary }}>
-                      <div className="truncate" title={venue.visitor_summary}>
-                        {venue.visitor_summary}
-                      </div>
-                    </td>
-                  )}
-                  {columnVisibility.instagram && (
-                    <td className="border-r border-gray-200 p-2" style={{ width: columnWidths.instagram }}>
-                      {venue.instagram && (
-                        <a
-                          href={venue.instagram}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          Instagram
-                        </a>
-                      )}
-                    </td>
-                  )}
-                  {columnVisibility.facebook && (
-                    <td className="border-r border-gray-200 p-2" style={{ width: columnWidths.facebook }}>
-                      {venue.facebook && (
-                        <a
-                          href={venue.facebook}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          Facebook
-                        </a>
-                      )}
-                    </td>
-                  )}
-                  {columnVisibility.address && (
-                    <td className="border-r border-gray-200 p-2" style={{ width: columnWidths.address }}>
-                      <div className="truncate" title={venue.address}>
-                        {venue.address}
-                      </div>
-                    </td>
-                  )}
-                  {columnVisibility.public_transit && (
-                    <td className="p-2" style={{ width: columnWidths.public_transit }}>
-                      {venue.public_transit && (
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          venue.public_transit === 'yes' ? 'bg-green-100 text-green-800' :
-                          venue.public_transit === 'partial' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {venue.public_transit}
-                        </span>
-                      )}
-                    </td>
-                  )}
+                        Link
+                      </a>
+                    )}
+                  </td>
+                  <td className="p-2 border-r border-gray-200" style={{ maxWidth: '250px' }}>
+                    <div className="truncate">{venue.artist_summary}</div>
+                  </td>
+                  <td className="p-2 border-r border-gray-200" style={{ maxWidth: '250px' }}>
+                    <div className="truncate">{venue.visitor_summary}</div>
+                  </td>
+                  <td className="p-2 border-r border-gray-200">
+                    {venue.instagram && (
+                      <a
+                        href={`https://instagram.com/${venue.instagram}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        @{venue.instagram}
+                      </a>
+                    )}
+                  </td>
+                  <td className="p-2 border-r border-gray-200">
+                    {venue.facebook && (
+                      <a
+                        href={venue.facebook}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        Link
+                      </a>
+                    )}
+                  </td>
+                  <td className="p-2 border-r border-gray-200">{venue.address}</td>
+                  <td className="p-2">{venue.public_transit}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {venues.length === 0 && !loading && (
-          <div className="text-center py-12 text-gray-500">
-            No venues found. Try adjusting your search criteria.
-          </div>
-        )}
-
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="mt-8 flex justify-center space-x-2">
+          <div className="mt-6 flex justify-center gap-2">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage <= 1}
+              disabled={currentPage === 1}
               className="px-4 py-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             >
               Previous
             </button>
-
-            <span className="px-4 py-2 text-gray-600">
+            <span className="px-4 py-2">
               Page {currentPage} of {totalPages}
             </span>
-
             <button
               onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage >= totalPages}
+              disabled={currentPage === totalPages}
               className="px-4 py-2 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             >
               Next
@@ -760,6 +480,14 @@ export default function VenuesPage() {
           </div>
         )}
       </div>
+
+      {/* Modal */}
+      {selectedVenue && (
+        <VenueModal
+          venue={selectedVenue}
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   );
 }
