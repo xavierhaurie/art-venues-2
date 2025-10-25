@@ -26,9 +26,9 @@ INSERT INTO artist_profile (user_id, statement, visibility) VALUES
 ON CONFLICT (user_id) DO NOTHING;
 
 -- Test setup: Create test venues
-INSERT INTO venue (id, region_code, name, type, locality) VALUES
-  ('00000000-0000-0000-0000-000000000001', 'BOS', 'Test Venue 1', 'gallery - commercial', 'Boston'),
-  ('00000000-0000-0000-0000-000000000002', 'BOS', 'Test Venue 2', 'gallery - non-profit', 'Cambridge')
+INSERT INTO venue (id, region_code, name, type, locality, normalized_url) VALUES
+  ('00000000-0000-0000-0000-000000000001', 'BOS', 'Test Venue 1', 'gallery - commercial', 'Boston', 'test-venue-1.com'),
+  ('00000000-0000-0000-0000-000000000002', 'BOS', 'Test Venue 2', 'gallery - non-profit', 'Cambridge', 'test-venue-2.com')
 ON CONFLICT (id) DO NOTHING;
 
 -- Test setup: Create test notes

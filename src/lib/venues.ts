@@ -23,24 +23,18 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     sort_order = 'asc',
   } = params;
 
-  // Calculate offset for pagination
   const offset = (page - 1) * page_size;
 
-  // Build the select with LEFT JOIN to notes
-  // If userId is provided, we'll fetch their notes for each venue
+  // Build the select with LEFT JOIN to notes and sticker assignments
   const selectClause = userId
-    ? 'id, name, type, locality, region_code, address, public_transit, website_url, map_link, artist_summary, visitor_summary, facebook, instagram, created_at, note(id, body, artist_user_id)'
+    ? `id, name, type, locality, region_code, address, public_transit, website_url, map_link, artist_summary, visitor_summary, facebook, instagram, created_at, 
+       note(id, body, artist_user_id),
+       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color))`
     : '*';
 
-  // Start building the query
   let query = supabase
     .from('venue')
     .select(selectClause, { count: 'exact' });
-
-  // If userId provided, filter notes by user (but keep all venues via LEFT JOIN)
-  if (userId) {
-    query = query.or(`artist_user_id.eq.${userId},artist_user_id.is.null`, { foreignTable: 'note' });
-  }
 
   // Apply filters
   if (locality) {
@@ -55,7 +49,6 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     query = query.eq('public_transit', public_transit);
   }
 
-  // Stub for has_open_call - will be implemented later
   if (has_open_call) {
     query = query.eq('id', '00000000-0000-0000-0000-000000000000');
   }
@@ -67,28 +60,42 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
   // Apply pagination
   query = query.range(offset, offset + page_size - 1);
 
-  // Execute query
   const { data, error, count } = await query;
 
   if (error) {
     throw new Error(`Failed to fetch venues: ${error.message}`);
   }
 
-  // Transform the data to include note in a flat structure
+  // Transform the data to include notes and stickers in a flat structure
   const venues = (data || []).map((venue: any) => {
-    if (userId && venue.note && Array.isArray(venue.note) && venue.note.length > 0) {
+    const result: any = { ...venue };
+
+    // Handle notes
+    if (userId && venue.note && Array.isArray(venue.note)) {
       const userNote = venue.note.find((n: any) => n.artist_user_id === userId);
-      return {
-        ...venue,
-        user_note: userNote ? { id: userNote.id, body: userNote.body } : null,
-        note: undefined, // Remove the raw note array
-      };
+      result.user_note = userNote ? { id: userNote.id, body: userNote.body } : null;
+    } else {
+      result.user_note = null;
     }
-    return {
-      ...venue,
-      user_note: null,
-      note: undefined,
-    };
+    delete result.note;
+
+    // Handle sticker assignments
+    if (userId && venue.sticker_assignment && Array.isArray(venue.sticker_assignment)) {
+      result.user_stickers = venue.sticker_assignment
+        .filter((sa: any) => sa.artist_user_id === userId && sa.sticker_meaning)
+        .map((sa: any) => ({
+          id: sa.id,
+          sticker_meaning_id: sa.sticker_meaning_id,
+          color: sa.sticker_meaning.color,
+          label: sa.sticker_meaning.label,
+          details: sa.sticker_meaning.details
+        }));
+    } else {
+      result.user_stickers = [];
+    }
+    delete result.sticker_assignment;
+
+    return result;
   });
 
   const total = count || 0;
@@ -129,18 +136,18 @@ export async function searchVenues(
   const sanitizedQuery = query.trim().replace(/[^\w\s-]/g, '');
 
   if (!sanitizedQuery) {
-    // If query is empty after sanitization, fall back to regular listing
     return getVenues(params, userId);
   }
 
   const offset = (page - 1) * page_size;
 
-  // Build the select with LEFT JOIN to notes
+  // Build the select with LEFT JOIN to notes and sticker assignments
   const selectClause = userId
-    ? 'id, name, type, locality, region_code, address, public_transit, website_url, map_link, artist_summary, visitor_summary, facebook, instagram, created_at, note(id, body, artist_user_id)'
+    ? `id, name, type, locality, region_code, address, public_transit, website_url, map_link, artist_summary, visitor_summary, facebook, instagram, created_at, 
+       note(id, body, artist_user_id),
+       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color))`
     : '*';
 
-  // Use Supabase's textSearch for full-text search on the 'search' tsvector column
   let searchQuery = supabase
     .from('venue')
     .select(selectClause, { count: 'exact' })
@@ -148,11 +155,6 @@ export async function searchVenues(
       type: 'websearch',
       config: 'english',
     });
-
-  // If userId provided, filter notes by user (but keep all venues via LEFT JOIN)
-  if (userId) {
-    searchQuery = searchQuery.or(`artist_user_id.eq.${userId},artist_user_id.is.null`, { foreignTable: 'note' });
-  }
 
   // Apply filters
   if (locality) {
@@ -180,21 +182,36 @@ export async function searchVenues(
     throw new Error(`Failed to search venues: ${error.message}`);
   }
 
-  // Transform the data to include note in a flat structure
+  // Transform the data to include notes and stickers in a flat structure
   const venues = (data || []).map((venue: any) => {
-    if (userId && venue.note && Array.isArray(venue.note) && venue.note.length > 0) {
+    const result: any = { ...venue };
+
+    // Handle notes
+    if (userId && venue.note && Array.isArray(venue.note)) {
       const userNote = venue.note.find((n: any) => n.artist_user_id === userId);
-      return {
-        ...venue,
-        user_note: userNote ? { id: userNote.id, body: userNote.body } : null,
-        note: undefined,
-      };
+      result.user_note = userNote ? { id: userNote.id, body: userNote.body } : null;
+    } else {
+      result.user_note = null;
     }
-    return {
-      ...venue,
-      user_note: null,
-      note: undefined,
-    };
+    delete result.note;
+
+    // Handle sticker assignments
+    if (userId && venue.sticker_assignment && Array.isArray(venue.sticker_assignment)) {
+      result.user_stickers = venue.sticker_assignment
+        .filter((sa: any) => sa.artist_user_id === userId && sa.sticker_meaning)
+        .map((sa: any) => ({
+          id: sa.id,
+          sticker_meaning_id: sa.sticker_meaning_id,
+          color: sa.sticker_meaning.color,
+          label: sa.sticker_meaning.label,
+          details: sa.sticker_meaning.details
+        }));
+    } else {
+      result.user_stickers = [];
+    }
+    delete result.sticker_assignment;
+
+    return result;
   });
 
   const total = count || 0;
@@ -213,10 +230,8 @@ export async function searchVenues(
 
 /**
  * Get available filter options for venue listing
- * Used to populate filter dropdowns in the UI
  */
 export async function getVenueFilters(region: string = 'BOS'): Promise<VenueFilters> {
-  // Get distinct localities for the region
   const { data: localityData, error: localityError } = await supabase
     .from('venue')
     .select('locality')
@@ -229,7 +244,6 @@ export async function getVenueFilters(region: string = 'BOS'): Promise<VenueFilt
 
   const localities = [...new Set(localityData?.map(v => v.locality) || [])];
 
-  // Get distinct types
   const { data: typeData, error: typeError } = await supabase
     .from('venue')
     .select('type')
@@ -241,8 +255,6 @@ export async function getVenueFilters(region: string = 'BOS'): Promise<VenueFilt
   }
 
   const types = [...new Set(typeData?.map(v => v.type as VenueType) || [])];
-
-  // Public transit options are fixed
   const public_transit_options: Array<'yes' | 'partial' | 'no'> = ['yes', 'partial', 'no'];
 
   return {
@@ -264,7 +276,6 @@ export async function getVenueById(id: string): Promise<Venue | null> {
 
   if (error) {
     if (error.code === 'PGRST116') {
-      // Not found
       return null;
     }
     throw new Error(`Failed to fetch venue: ${error.message}`);
@@ -285,7 +296,6 @@ export async function getVenueByUrl(normalized_url: string): Promise<Venue | nul
 
   if (error) {
     if (error.code === 'PGRST116') {
-      // Not found
       return null;
     }
     throw new Error(`Failed to fetch venue: ${error.message}`);

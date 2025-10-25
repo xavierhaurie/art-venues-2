@@ -158,3 +158,30 @@ export function clearSessionCookie(): void {
   const cookieStore = cookies();
   cookieStore.delete('session');
 }
+
+export async function getCurrentUserId(): Promise<string | null> {
+  if (DEV_BYPASS_AUTH) {
+    return DEV_USER_ID;
+  }
+
+  try {
+    const cookieStore = cookies();
+    const sessionCookie = cookieStore.get('session');
+
+    if (!sessionCookie) {
+      return null;
+    }
+
+    const decoded = jwt.verify(sessionCookie.value, JWT_SECRET) as SessionData;
+
+    // Check if session is expired
+    if (decoded.exp < Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+
+    return decoded.userId;
+  } catch (error) {
+    console.error('getCurrentUserId error:', error);
+    return null;
+  }
+}

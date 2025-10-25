@@ -5,6 +5,20 @@
 -- This file is idempotent - can be run multiple times safely
 -- Venues are inserted with ON CONFLICT DO UPDATE to handle re-runs
 
+-- Function to create default stickers for a user
+CREATE OR REPLACE FUNCTION create_default_stickers_for_user(user_id uuid)
+RETURNS void AS $$
+BEGIN
+  -- Insert 5 default sticker meanings for the user
+  INSERT INTO sticker_meaning (artist_user_id, color, label, details) VALUES
+    (user_id, '#ADD8E6', 'Interested', 'Need to dig deeper into this venue'),
+    (user_id, '#FFB366', 'Contacted', ''),
+    (user_id, '#FFFF99', 'Submitted Work', 'See the images of the artworks I submitted and the notes'),
+    (user_id, '#FFB3B3', 'Has My Artwork', 'See the images of the artworks currently at this venue'),
+    (user_id, '#D3D3D3', 'Sold', 'Details of the artwork sold are in the notes')
+  ON CONFLICT (artist_user_id, color) DO NOTHING;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Sample venue data (template - will be replaced with actual 250 venues)
 -- This demonstrates the structure for bulk import

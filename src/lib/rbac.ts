@@ -81,7 +81,7 @@ export async function withRoleCheck(
   }
 
   // Check if user has required role
-  if (!allowedRoles.includes(session.role)) {
+  if (!allowedRoles.includes(session.role as UserRole)) {
     await logAuditEvent(
       'auth.rbac.denied',
       'rbac',
@@ -91,19 +91,11 @@ export async function withRoleCheck(
         userRole: session.role,
         requiredRoles: allowedRoles,
         endpoint: request.nextUrl.pathname,
-      },
-      session.userId,
-      request.ip,
-      request.headers.get('user-agent') || undefined
+      }
     );
 
     return NextResponse.json(
-      {
-        error: 'Forbidden',
-        message: 'You do not have permission to access this resource',
-        requiredRole: allowedRoles,
-        yourRole: session.role,
-      },
+      { error: 'Insufficient permissions' },
       { status: 403 }
     );
   }

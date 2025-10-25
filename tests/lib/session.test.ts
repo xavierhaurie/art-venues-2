@@ -1,4 +1,4 @@
-+import { createSession, verifySession, decodeSession } from '@/lib/session';
+import { createSession, verifySession, decodeSession } from '@/lib/session';
 
 describe('Session utilities', () => {
   describe('createSession', () => {
@@ -80,4 +80,3 @@ describe('Session utilities', () => {
     });
   });
 });
-

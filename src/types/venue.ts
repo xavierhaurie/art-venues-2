@@ -33,6 +33,17 @@ export interface Venue {
   last_verified_at?: string;
   created_at: string;
   updated_at: string;
+  user_note?: {
+    id: string;
+    body: string;
+  } | null;
+  user_stickers?: Array<{
+    id: string;
+    sticker_meaning_id: string;
+    color: string;
+    label: string;
+    details: string | null;
+  }>;
 }
 
 export interface VenueListParams {

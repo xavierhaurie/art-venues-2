@@ -116,14 +116,18 @@ CREATE INDEX idx_venue_search_fts  ON venue USING GIN (search);
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
-    EXECUTE 'CREATE INDEX idx_venue_trgm ON venue USING GIN ((coalesce(name,'''') || '' '' || coalesce(artist_summary,'''') || '' '' || coalesce(visitor_summary,'''')) gin_trgm_ops)';
-    RAISE NOTICE '✓ Created trigram index on venue table';
+    BEGIN
+      EXECUTE 'CREATE INDEX idx_venue_trgm ON venue USING GIN ((coalesce(name,'''') || '' '' || coalesce(artist_summary,'''') || '' '' || coalesce(visitor_summary,'''')) gin_trgm_ops)';
+      RAISE NOTICE '✓ Created trigram index on venue table';
+    EXCEPTION
+      WHEN undefined_object THEN
+        RAISE NOTICE '⚠ Skipping trigram index on venue (pg_trgm operators not available)';
+      WHEN OTHERS THEN
+        RAISE NOTICE '⚠ Could not create trigram index on venue: %', SQLERRM;
+    END;
   ELSE
     RAISE NOTICE '⚠ Skipping trigram index on venue (pg_trgm not available)';
   END IF;
-EXCEPTION
-  WHEN OTHERS THEN
-    RAISE NOTICE '⚠ Could not create trigram index on venue: %', SQLERRM;
 END $$;
 CREATE TRIGGER trg_venue_updated BEFORE UPDATE ON venue
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -177,34 +181,65 @@ CREATE INDEX idx_venue_image_order ON venue_image(artist_user_id, venue_id, disp
 CREATE TRIGGER trg_venue_image_updated BEFORE UPDATE ON venue_image
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- NOTES (per-artist, per-venue)
+CREATE TABLE note (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  venue_id       uuid NOT NULL REFERENCES venue(id) ON DELETE CASCADE,
+  body           text NOT NULL,
+  created_at     timestamptz NOT NULL DEFAULT NOW(),
+  updated_at     timestamptz NOT NULL DEFAULT NOW(),
+  UNIQUE (artist_user_id, venue_id)
+);
+CREATE INDEX idx_note_artist ON note(artist_user_id);
+CREATE INDEX idx_note_venue ON note(venue_id);
+-- Trigram index for fuzzy text search (only if pg_trgm extension is available)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
+    BEGIN
+      EXECUTE 'CREATE INDEX idx_note_trgm ON note USING GIN (body gin_trgm_ops)';
+      RAISE NOTICE '✓ Created trigram index on note table';
+    EXCEPTION
+      WHEN undefined_object THEN
+        RAISE NOTICE '⚠ Skipping trigram index on note (pg_trgm operators not available)';
+      WHEN OTHERS THEN
+        RAISE NOTICE '⚠ Could not create trigram index on note: %', SQLERRM;
+    END;
+  ELSE
     RAISE NOTICE '⚠ Skipping trigram index on note (pg_trgm not available)';
   END IF;
-EXCEPTION
-  WHEN OTHERS THEN
-    RAISE NOTICE '⚠ Could not create trigram index on note: %', SQLERRM;
-END $$;
+END
+$$ LANGUAGE plpgsql;
+
 CREATE TRIGGER trg_note_updated BEFORE UPDATE ON note
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- STICKERS (meanings per-artist; assignments per venue)
+-- STICKER MEANINGS (per-artist sticker definitions)
 CREATE TABLE sticker_meaning (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   artist_user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
-  color          text NOT NULL,         -- 10 colors; app validates set
   label          text NOT NULL,
-  created_at     timestamptz NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (artist_user_id, color)
-);
-
-CREATE TABLE sticker_assignment (
-  artist_user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
-  venue_id       uuid NOT NULL REFERENCES venue(id) ON DELETE CASCADE,
+  details        text,
   color          text NOT NULL,
   created_at     timestamptz NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (artist_user_id, venue_id, color),
-  FOREIGN KEY (artist_user_id, color)
-    REFERENCES sticker_meaning(artist_user_id, color) ON DELETE CASCADE
+  updated_at     timestamptz NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_sticker_meaning_artist ON sticker_meaning(artist_user_id);
+CREATE TRIGGER trg_sticker_meaning_updated BEFORE UPDATE ON sticker_meaning
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- STICKER ASSIGNMENTS (per-artist, per-venue sticker assignments)
+CREATE TABLE sticker_assignment (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  venue_id       uuid NOT NULL REFERENCES venue(id) ON DELETE CASCADE,
+  sticker_meaning_id uuid NOT NULL REFERENCES sticker_meaning(id) ON DELETE CASCADE,
+  created_at     timestamptz NOT NULL DEFAULT NOW(),
+  UNIQUE (artist_user_id, venue_id, sticker_meaning_id)
 );
 CREATE INDEX idx_sticker_assign_venue ON sticker_assignment(venue_id);
+CREATE INDEX idx_sticker_assign_meaning ON sticker_assignment(sticker_meaning_id);
 
 -- BOOKMARKS
 CREATE TABLE bookmark (

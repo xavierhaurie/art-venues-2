@@ -9,6 +9,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 // Create Supabase client - it uses 'public' schema by default
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Export the supabase client for use in API routes
+export { supabase };
+
 /**
  * Database operations for authentication
  */

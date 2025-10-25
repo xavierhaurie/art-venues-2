@@ -196,6 +196,7 @@ conf/
 4. Update state management when adding new stateful entities
 5. Test dirty state behavior for any new dialogs or forms
 6. Maintain the separation between core, business, and GUI layers
+7. Do not user the PUT, UPDATE and DELETE HTTP cerbs. Jus GET and POST. Query params specify values that are not part of the schema (such as how table navigation parameteres) )
 
 ## Common Gotchas
 - State managers must be initialized after UI controls exist

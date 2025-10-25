@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import VenueModal from '@/components/VenueModal';
+import StickerManagement from '@/components/StickerManagement';
+import VenueStickers from '@/components/VenueStickers';
 import { useVenueStore } from '@/lib/store/venueStore';
 
 interface Venue {
@@ -24,6 +26,13 @@ interface Venue {
     id: string;
     body: string;
   } | null;
+  user_stickers?: Array<{
+    id: string;
+    sticker_meaning_id: string;
+    color: string;
+    label: string;
+    details: string | null;
+  }>;
 }
 
 interface VenuesResponse {
@@ -41,10 +50,13 @@ interface UserVenueData {
   noteId?: string;
 }
 
-const STAR_COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-  '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
-];
+interface StickerMeaning {
+  id: string;
+  color: string;
+  label: string;
+  details: string | null;
+  created_at: string;
+}
 
 export default function VenuesPage() {
   const router = useRouter();
@@ -66,7 +78,53 @@ export default function VenuesPage() {
   const [savingNotes, setSavingNotes] = useState<{[venueId: string]: boolean}>({});
   const noteTimeouts = useRef<{[venueId: string]: NodeJS.Timeout}>({});
 
+  const [stickerMeanings, setStickerMeanings] = useState<StickerMeaning[]>([]);
+
   const { selectedVenueId, openModal, closeModal } = useVenueStore();
+
+  // Initialize default stickers for user
+  useEffect(() => {
+    initializeDefaultStickers();
+  }, []);
+
+  const initializeDefaultStickers = async () => {
+    try {
+      // Try to get existing sticker meanings
+      const response = await fetch('/api/stickers/meanings');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.meanings.length === 0) {
+          // Create default stickers
+          const defaultStickers = [
+            { color: '#ADD8E6', label: 'Interested', details: 'Need to dig deeper into this venue' },
+            { color: '#FFB366', label: 'Contacted', details: '' },
+            { color: '#FFFF99', label: 'Submitted Work', details: 'See the images of the artworks I submitted and the notes' },
+            { color: '#FFB3B3', label: 'Has My Artwork', details: 'See the images of the artworks currently at this venue' },
+            { color: '#D3D3D3', label: 'Sold', details: 'Details of the artwork sold are in the notes' }
+          ];
+
+          for (const sticker of defaultStickers) {
+            await fetch('/api/stickers/meanings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(sticker)
+            });
+          }
+
+          // Refetch after creating defaults
+          const updatedResponse = await fetch('/api/stickers/meanings');
+          if (updatedResponse.ok) {
+            const updatedData = await updatedResponse.json();
+            setStickerMeanings(updatedData.meanings);
+          }
+        } else {
+          setStickerMeanings(data.meanings);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to initialize default stickers:', error);
+    }
+  };
 
   const fetchVenues = async (page = 1, search = '', filterParams = filters) => {
     try {
@@ -111,6 +169,10 @@ export default function VenuesPage() {
   useEffect(() => {
     fetchVenues();
   }, []);
+
+  const handleStickerMeaningsChange = (meanings: StickerMeaning[]) => {
+    setStickerMeanings(meanings);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,17 +315,7 @@ export default function VenuesPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-6">Art Venues</h1>
 
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-sm font-semibold mb-2">Star Colors Legend:</h3>
-          <div className="flex flex-wrap gap-3">
-            {STAR_COLORS.map((color, index) => (
-              <div key={index} className="flex items-center gap-1">
-                <span className="w-4 h-4" style={{ color: color, fill: color }}>★</span>
-                <span className="text-xs">Star {index + 1}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <StickerManagement onStickerMeaningsChange={handleStickerMeaningsChange} />
 
         <div className="mb-6 space-y-4">
           <form onSubmit={handleSearch} className="flex gap-2">
@@ -338,6 +390,7 @@ export default function VenuesPage() {
           <table className="w-full text-sm border-collapse">
             <thead className="bg-gray-100 border-b border-gray-300">
               <tr>
+                <th className="p-2 text-left font-semibold border-r border-gray-300">Stickers</th>
                 <th className="p-2 text-left font-semibold border-r border-gray-300">Notes</th>
                 <th className="p-2 text-left font-semibold border-r border-gray-300">Name</th>
                 <th className="p-2 text-left font-semibold border-r border-gray-300">Type</th>
@@ -357,6 +410,12 @@ export default function VenuesPage() {
                   key={venue.id}
                   className={index % 2 === 0 ? 'bg-green-50' : 'bg-white'}
                 >
+                  <td className="p-0 border-r border-gray-200" style={{ minWidth: '120px', maxWidth: '200px' }}>
+                    <VenueStickers
+                      venueId={venue.id}
+                      stickerMeanings={stickerMeanings}
+                    />
+                  </td>
                   <td className="p-0 border-r border-gray-200" style={{ minWidth: '100px', maxWidth: '300px' }}>
                     {renderNotesCell(venue.id)}
                   </td>

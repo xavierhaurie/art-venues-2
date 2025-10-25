@@ -106,7 +106,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ note });
   } catch (error) {
     console.error('Error in notes PUT:', error);
-    if (error.message.includes('not found')) {
+    if (error instanceof Error && error.message.includes('not found')) {
       return NextResponse.json(
         { error: 'Note not found or access denied' },
         { status: 404 }
