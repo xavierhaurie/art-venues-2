@@ -485,7 +485,7 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
                   <div style={{ gridColumn: 'span 2' }}>
                     <span style={{ fontWeight: '600', color: '#374151' }}>Website:</span>{' '}
                     <a href={venue.website_url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>
-                      {venue.website_url}
+                      Link
                     </a>
                   </div>
                 )}
@@ -512,7 +512,7 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
                 {venue.instagram && (
                   <div>
                     <span style={{ fontWeight: '600', color: '#374151' }}>Instagram:</span>{' '}
-                    <a href={venue.instagram} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>
+                    <a href={`https://instagram.com/${venue.instagram}`} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>
                       Link
                     </a>
                   </div>
