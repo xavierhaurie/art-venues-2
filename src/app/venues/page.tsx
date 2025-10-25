@@ -256,43 +256,15 @@ export default function VenuesPage() {
 
   const renderNotesCell = (venueId: string) => {
     const venueData = userVenueData[venueId];
-    if (!venueData) return null;
+    if (!venueData || !venueData.notes) return null;
 
-    const isEditing = editingNote === venueId;
     const isSaving = savingNotes[venueId];
 
     return (
       <div className="p-2 relative">
-        {isEditing ? (
-          <textarea
-            value={venueData.notes}
-            onChange={(e) => handleNotesChange(venueId, e.target.value)}
-            onBlur={() => setEditingNote(null)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                setEditingNote(null);
-              }
-              if (e.key === 'Escape') {
-                setEditingNote(null);
-              }
-            }}
-            className="w-full min-h-[60px] p-2 border border-gray-300 rounded resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            autoFocus
-            placeholder="Add notes..."
-          />
-        ) : (
-          <div
-            onClick={() => setEditingNote(venueId)}
-            className="min-w-[100px] min-h-[20px] cursor-text hover:bg-gray-100 p-2 rounded text-sm border border-transparent"
-            style={{
-              borderRadius: '5px',
-              border: venueData.notes ? 'none' : '1px solid #d1d5db'
-            }}
-          >
-            {venueData.notes || ''}
-          </div>
-        )}
+        <div className="text-sm text-gray-700 truncate" style={{ maxWidth: '200px' }}>
+          {venueData.notes}
+        </div>
         {isSaving && (
           <div className="absolute top-1 right-1 text-xs text-gray-500">Saving...</div>
         )}
