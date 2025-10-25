@@ -199,6 +199,31 @@ export default function VenuesPage() {
     router.push('/venues', { scroll: false });
   };
 
+  const handleNoteSaved = (venueId: string, noteBody: string, noteId?: string) => {
+    // Update the local venues state immediately to show the note in the table
+    setVenues(prevVenues =>
+      prevVenues.map(venue =>
+        venue.id === venueId
+          ? {
+              ...venue,
+              user_note: noteBody.trim()
+                ? { id: noteId || venue.user_note?.id || '', body: noteBody }
+                : null
+            }
+          : venue
+      )
+    );
+
+    // Also update the userVenueData state for consistency
+    setUserVenueData(prevData => ({
+      ...prevData,
+      [venueId]: {
+        notes: noteBody,
+        noteId: noteId
+      }
+    }));
+  };
+
   const handleNotesChange = (venueId: string, notes: string) => {
     setUserVenueData(prev => ({
       ...prev,
@@ -479,8 +504,8 @@ export default function VenuesPage() {
       {selectedVenue && (
         <VenueModal
           venue={selectedVenue}
-          isOpen={!!selectedVenueId}
           onClose={handleCloseModal}
+          onNoteSaved={handleNoteSaved}
         />
       )}
     </div>

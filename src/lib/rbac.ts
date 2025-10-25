@@ -29,7 +29,7 @@ export async function withRoleCheck(
       'rbac',
       null,
       { reason: 'no_session', endpoint: request.nextUrl.pathname },
-      undefined,
+      null, // actorUserId
       request.ip,
       request.headers.get('user-agent') || undefined
     );
@@ -49,7 +49,7 @@ export async function withRoleCheck(
       'rbac',
       null,
       { reason: 'invalid_session', endpoint: request.nextUrl.pathname },
-      undefined,
+      null, // actorUserId
       request.ip,
       request.headers.get('user-agent') || undefined
     );
@@ -69,7 +69,7 @@ export async function withRoleCheck(
       'rbac',
       null,
       { reason: 'session_revoked', endpoint: request.nextUrl.pathname, userId: session.userId },
-      session.userId,
+      session.userId, // actorUserId
       request.ip,
       request.headers.get('user-agent') || undefined
     );
@@ -91,7 +91,10 @@ export async function withRoleCheck(
         userRole: session.role,
         requiredRoles: allowedRoles,
         endpoint: request.nextUrl.pathname,
-      }
+      },
+      session.userId, // actorUserId
+      request.ip,
+      request.headers.get('user-agent') || undefined
     );
 
     return NextResponse.json(
@@ -113,7 +116,7 @@ export async function withRoleCheck(
       userRole: session.role,
       endpoint: request.nextUrl.pathname,
     },
-    session.userId,
+    session.userId, // actorUserId
     request.ip,
     request.headers.get('user-agent') || undefined
   );
