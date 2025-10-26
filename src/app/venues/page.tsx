@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import VenueModal from '@/components/VenueModal';
-import StickerManagement from '@/components/StickerManagement';
 import VenueStickers from '@/components/VenueStickers';
 import { useVenueStore } from '@/lib/store/venueStore';
 
@@ -50,14 +49,6 @@ interface UserVenueData {
   noteId?: string;
 }
 
-interface StickerMeaning {
-  id: string;
-  color: string;
-  label: string;
-  details: string | null;
-  created_at: string;
-}
-
 export default function VenuesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -78,53 +69,7 @@ export default function VenuesPage() {
   const [savingNotes, setSavingNotes] = useState<{[venueId: string]: boolean}>({});
   const noteTimeouts = useRef<{[venueId: string]: NodeJS.Timeout}>({});
 
-  const [stickerMeanings, setStickerMeanings] = useState<StickerMeaning[]>([]);
-
   const { selectedVenueId, openModal, closeModal } = useVenueStore();
-
-  // Initialize default stickers for user
-  useEffect(() => {
-    initializeDefaultStickers();
-  }, []);
-
-  const initializeDefaultStickers = async () => {
-    try {
-      // Try to get existing sticker meanings
-      const response = await fetch('/api/stickers/meanings');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.meanings.length === 0) {
-          // Create default stickers
-          const defaultStickers = [
-            { color: '#ADD8E6', label: 'Interested', details: 'Need to dig deeper into this venue' },
-            { color: '#FFB366', label: 'Contacted', details: '' },
-            { color: '#FFFF99', label: 'Submitted Work', details: 'See the images of the artworks I submitted and the notes' },
-            { color: '#FFB3B3', label: 'Has My Artwork', details: 'See the images of the artworks currently at this venue' },
-            { color: '#D3D3D3', label: 'Sold', details: 'Details of the artwork sold are in the notes' }
-          ];
-
-          for (const sticker of defaultStickers) {
-            await fetch('/api/stickers/meanings', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(sticker)
-            });
-          }
-
-          // Refetch after creating defaults
-          const updatedResponse = await fetch('/api/stickers/meanings');
-          if (updatedResponse.ok) {
-            const updatedData = await updatedResponse.json();
-            setStickerMeanings(updatedData.meanings);
-          }
-        } else {
-          setStickerMeanings(data.meanings);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to initialize default stickers:', error);
-    }
-  };
 
   const fetchVenues = async (page = 1, search = '', filterParams = filters) => {
     try {
@@ -169,10 +114,6 @@ export default function VenuesPage() {
   useEffect(() => {
     fetchVenues();
   }, []);
-
-  const handleStickerMeaningsChange = (meanings: StickerMeaning[]) => {
-    setStickerMeanings(meanings);
-  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -312,8 +253,6 @@ export default function VenuesPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-6">Art Venues</h1>
 
-        <StickerManagement onStickerMeaningsChange={handleStickerMeaningsChange} />
-
         <div className="mb-6 space-y-4">
           <form onSubmit={handleSearch} className="flex gap-2">
             <input
@@ -411,7 +350,6 @@ export default function VenuesPage() {
                   <td className="p-0 border-r border-gray-200" style={{ minWidth: '120px', maxWidth: '200px' }}>
                     <VenueStickers
                       venueId={venue.id}
-                      stickerMeanings={stickerMeanings}
                     />
                   </td>
                   <td className="p-0 border-r border-gray-200" style={{ minWidth: '100px', maxWidth: '300px' }}>
@@ -446,7 +384,7 @@ export default function VenuesPage() {
                     <div className="truncate">{venue.visitor_summary}</div>
                   </td>
                   <td className="p-2 border-r border-gray-200">
-                    {venue.instagram && (
+                    {venue.instagram && !venue.instagram.includes('facebook.com') && (
                       <a
                         href={venue.instagram.startsWith('http') ? venue.instagram : `https://www.instagram.com/${venue.instagram}`}
                         target="_blank"

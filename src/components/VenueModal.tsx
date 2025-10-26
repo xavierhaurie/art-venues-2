@@ -5,35 +5,24 @@ import { createPortal } from 'react-dom';
 import { useVenueStore } from '@/lib/store/venueStore';
 import { compressImage, validateImageFile } from '@/lib/imageUtils';
 
-interface Venue {
-  id: string;
-  name: string;
-  type: string;
-  locality: string;
-  address?: string;
-  website_url?: string;
-  artist_summary?: string;
-  visitor_summary?: string;
-  facebook?: string;
-  instagram?: string;
-  public_transit?: string;
-  map_link?: string;
-}
-
-interface VenueModalProps {
-  venue: Venue;
-  onClose: () => void;
-  onNoteSaved?: (venueId: string, noteBody: string, noteId?: string) => void;
-}
-
-export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalProps) {
+export default function VenueModal({ venue, onClose, onNoteSaved, onStickerUpdate }) {
   const [localNotes, setLocalNotes] = useState('');
   const [originalNotes, setOriginalNotes] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
+  const [galleryIndex, setGalleryIndex] = useState(null);
   const [mounted, setMounted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef(null);
+
+  // Sticker-related state
+  const [stickerMeanings, setStickerMeanings] = useState([]);
+  const [assignedStickers, setAssignedStickers] = useState([]);
+  const [showCreateStickerDialog, setShowCreateStickerDialog] = useState(false);
+  const [stickerFormData, setStickerFormData] = useState({
+    color: '#ADD8E6',
+    label: '',
+    details: ''
+  });
 
   const {
     notes,
@@ -59,10 +48,12 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
     return () => setMounted(false);
   }, []);
 
-  // Load notes and images on mount
+  // Load notes, images, and stickers on mount
   useEffect(() => {
     loadNotes();
     loadImages();
+    loadStickerMeanings();
+    loadVenueStickers();
   }, [venue.id]);
 
   // Sync local notes with store and track original notes
@@ -79,6 +70,14 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
   useEffect(() => {
     setHasUnsavedChanges(localNotes !== originalNotes);
   }, [localNotes, originalNotes]);
+
+  // Initialize sticker form data with next available color
+  useEffect(() => {
+    setStickerFormData(prev => ({
+      ...prev,
+      color: getNextAvailableColor()
+    }));
+  }, [stickerMeanings]);
 
   const loadNotes = async () => {
     try {
@@ -111,8 +110,38 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
     }
   };
 
-  const handleNotesChange = (value: string) => {
+  const loadStickerMeanings = async () => {
+    try {
+      const response = await fetch('/api/stickers/meanings');
+      if (response.ok) {
+        const data = await response.json();
+        setStickerMeanings(data.meanings || []);
+      }
+    } catch (error) {
+      console.error('Failed to load sticker meanings:', error);
+    }
+  };
+
+  const loadVenueStickers = async () => {
+    try {
+      const response = await fetch(`/api/venues/${venue.id}/stickers`);
+      if (response.ok) {
+        const data = await response.json();
+        setAssignedStickers(data.stickers || []);
+      }
+    } catch (error) {
+      console.error('Failed to load venue stickers:', error);
+    }
+  };
+
+  const handleNotesChange = (value) => {
     setLocalNotes(value);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      handleClose();
+    }
   };
 
   const handleSave = async () => {
@@ -132,12 +161,10 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
         setOriginalNotes(localNotes);
         setHasUnsavedChanges(false);
 
-        // Notify parent component of the save
         if (onNoteSaved) {
           onNoteSaved(venue.id, data.note?.body || '', data.note?.id);
         }
 
-        // Close the modal after successful save
         onClose();
       } else {
         alert('Failed to save notes. Please try again.');
@@ -156,7 +183,6 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
       if (!confirmed) return;
     }
 
-    // Reset to original notes
     setLocalNotes(originalNotes);
     setHasUnsavedChanges(false);
     onClose();
@@ -175,8 +201,8 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
     onClose();
   };
 
-  const handleImageUpload = async (files: FileList) => {
-    const validFiles: File[] = [];
+  const handleImageUpload = async (files) => {
+    const validFiles = [];
 
     if (venueImages.length + files.length > 20) {
       alert(`Maximum 20 images allowed. You can upload ${20 - venueImages.length} more.`);
@@ -226,7 +252,7 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
     }
   };
 
-  const handleDeleteImage = async (imageId: string) => {
+  const handleDeleteImage = async (imageId) => {
     if (!confirm('Delete this image?')) return;
 
     try {
@@ -244,11 +270,144 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      handleClose();
+  const getNextAvailableColor = () => {
+    const defaultColors = ['#ADD8E6', '#FFB366', '#FFFF99', '#FFB3B3', '#D3D3D3'];
+    const usedColors = new Set(stickerMeanings.map(s => s.color));
+
+    for (const color of defaultColors) {
+      if (!usedColors.has(color)) {
+        return color;
+      }
+    }
+
+    const hue = Math.floor(Math.random() * 360);
+    return `hsl(${hue}, 50%, 85%)`;
+  };
+
+  const handleAssignSticker = async (stickerMeaningId) => {
+    try {
+      const response = await fetch(`/api/venues/${venue.id}/stickers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'assign', stickerMeaningId })
+      });
+
+      if (response.ok) {
+        await loadVenueStickers();
+        if (onStickerUpdate) {
+          onStickerUpdate();
+        }
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Failed to assign sticker');
+      }
+    } catch (error) {
+      console.error('Failed to assign sticker:', error);
+      alert('Failed to assign sticker');
     }
   };
+
+  const handleUnassignSticker = async (stickerMeaningId) => {
+    try {
+      const response = await fetch(`/api/venues/${venue.id}/stickers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unassign', stickerMeaningId })
+      });
+
+      if (response.ok) {
+        await loadVenueStickers();
+        if (onStickerUpdate) {
+          onStickerUpdate();
+        }
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Failed to unassign sticker');
+      }
+    } catch (error) {
+      console.error('Failed to unassign sticker:', error);
+      alert('Failed to unassign sticker');
+    }
+  };
+
+  const handleCreateStickerMeaning = async () => {
+    if (!stickerFormData.label.trim()) {
+      alert('Label is required');
+      return;
+    }
+
+    if (stickerFormData.label.length > 15) {
+      alert('Label must be 15 characters or less');
+      return;
+    }
+
+    if (stickerFormData.details && stickerFormData.details.length > 1000) {
+      alert('Details must be 1000 characters or less');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/stickers/meanings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stickerFormData)
+      });
+
+      if (response.ok) {
+        await loadStickerMeanings();
+        setShowCreateStickerDialog(false);
+        setStickerFormData({
+          color: getNextAvailableColor(),
+          label: '',
+          details: ''
+        });
+        if (onStickerUpdate) {
+          onStickerUpdate();
+        }
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Failed to create sticker');
+      }
+    } catch (error) {
+      console.error('Failed to create sticker:', error);
+      alert('Failed to create sticker');
+    }
+  };
+
+  const handleDeleteStickerMeaning = async (meaning) => {
+    if (!confirm(`Delete sticker "${meaning.label}"? This will also remove all assignments of this sticker to venues.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/stickers/meanings/delete?id=${meaning.id}`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        await loadStickerMeanings();
+        await loadVenueStickers();
+        if (onStickerUpdate) {
+          onStickerUpdate();
+        }
+      } else {
+        const errorData = await response.json();
+        if (errorData.hasAssignments) {
+          if (confirm('This sticker is assigned to venues. Delete all assignments and the sticker?')) {
+            alert('Force delete not implemented yet');
+          }
+        } else {
+          alert(errorData.error || 'Failed to delete sticker');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete sticker:', error);
+      alert('Failed to delete sticker');
+    }
+  };
+
+  // Computed values for UI
+  const assignedStickerIds = new Set(assignedStickers.map(s => s.sticker_meaning_id));
 
   if (!mounted) return null;
 
@@ -367,6 +526,134 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
                 }}
                 placeholder="Add your notes about this venue..."
               />
+            </div>
+
+            {/* Sticker Management Section */}
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>Stickers</h3>
+
+              {/* Available Stickers Row */}
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151' }}>Available:</span>
+                  <button
+                    onClick={() => setShowCreateStickerDialog(true)}
+                    style={{
+                      marginLeft: '0.5rem',
+                      padding: '0.25rem 0.5rem',
+                      backgroundColor: '#3b82f6',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '0.25rem',
+                      fontSize: '0.75rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.875rem' }}>+</span>
+                    New
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', minHeight: '2rem' }}>
+                  {stickerMeanings.map((meaning) => (
+                    <div
+                      key={meaning.id}
+                      onClick={() => handleAssignSticker(meaning.id)}
+                      style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '0.375rem 0.75rem',
+                        backgroundColor: meaning.color,
+                        borderRadius: '0.375rem',
+                        fontSize: '0.75rem',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        opacity: assignedStickerIds.has(meaning.id) ? 0.5 : 1,
+                        border: '1px solid rgba(0,0,0,0.1)'
+                      }}
+                      title={meaning.details || meaning.label}
+                    >
+                      <span>{meaning.label}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteStickerMeaning(meaning);
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '-0.25rem',
+                          right: '-0.25rem',
+                          backgroundColor: '#dc2626',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '1rem',
+                          height: '1rem',
+                          fontSize: '0.6rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Assigned Stickers Row */}
+              <div>
+                <div style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
+                  Assigned to this venue:
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', minHeight: '2rem' }}>
+                  {assignedStickers.map((sticker) => (
+                    <div
+                      key={sticker.id}
+                      style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '0.375rem 0.75rem',
+                        backgroundColor: sticker.color,
+                        borderRadius: '0.375rem',
+                        fontSize: '0.75rem',
+                        fontWeight: '500',
+                        border: '1px solid rgba(0,0,0,0.1)'
+                      }}
+                      title={sticker.details || sticker.label}
+                    >
+                      <span>{sticker.label}</span>
+                      <button
+                        onClick={() => handleUnassignSticker(sticker.sticker_meaning_id)}
+                        style={{
+                          position: 'absolute',
+                          top: '-0.25rem',
+                          right: '-0.25rem',
+                          backgroundColor: '#dc2626',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '1rem',
+                          height: '1rem',
+                          fontSize: '0.6rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Images Section */}
@@ -512,7 +799,7 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
                 {venue.instagram && (
                   <div>
                     <span style={{ fontWeight: '600', color: '#374151' }}>Instagram:</span>{' '}
-                    <a href={`https://instagram.com/${venue.instagram}`} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>
+                    <a href={venue.instagram.startsWith('http') ? venue.instagram : `https://www.instagram.com/${venue.instagram}`} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>
                       Link
                     </a>
                   </div>
@@ -625,6 +912,140 @@ export default function VenueModal({ venue, onClose, onNoteSaved }: VenueModalPr
           >
             ×
           </button>
+        </div>
+      )}
+
+      {/* Create Sticker Meaning Dialog */}
+      {showCreateStickerDialog && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 10001,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => setShowCreateStickerDialog(false)}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+              width: '100%',
+              maxWidth: '32rem',
+              padding: '2rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              pointerEvents: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>
+              Create Sticker Meaning
+            </h3>
+            <div>
+              <label style={{ fontWeight: '500', marginBottom: '0.5rem', display: 'block' }}>
+                Label
+              </label>
+              <input
+                type="text"
+                value={stickerFormData.label}
+                onChange={(e) => setStickerFormData({ ...stickerFormData, label: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '1rem',
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                }}
+                placeholder="Enter sticker label"
+              />
+            </div>
+            <div>
+              <label style={{ fontWeight: '500', marginBottom: '0.5rem', display: 'block' }}>
+                Details (optional)
+              </label>
+              <textarea
+                value={stickerFormData.details}
+                onChange={(e) => setStickerFormData({ ...stickerFormData, details: e.target.value })}
+                style={{
+                  width: '100%',
+                  minHeight: '100px',
+                  padding: '0.75rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '1rem',
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                  resize: 'vertical',
+                }}
+                placeholder="Enter sticker details or leave a note"
+              />
+            </div>
+            <div>
+              <label style={{ fontWeight: '500', marginBottom: '0.5rem', display: 'block' }}>
+                Color
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="color"
+                  value={stickerFormData.color}
+                  onChange={(e) => setStickerFormData({ ...stickerFormData, color: e.target.value })}
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    border: 'none',
+                    borderRadius: '0.375rem',
+                    cursor: 'pointer',
+                  }}
+                />
+                <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                  Pick a color for the sticker
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                onClick={() => setShowCreateStickerDialog(false)}
+                style={{
+                  padding: '0.5rem 1.5rem',
+                  backgroundColor: 'white',
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateStickerMeaning}
+                style={{
+                  padding: '0.5rem 1.5rem',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                }}
+              >
+                Create Sticker
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>
