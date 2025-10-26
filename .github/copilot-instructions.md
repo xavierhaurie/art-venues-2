@@ -207,3 +207,5 @@ conf/
 
 ## No backward compatiblity
 - This code has not been delivered to users. There is no need for backward compatibility.
+
+## ALWAYS err on the side of caution, and take all the necessary time to come up with the right solutions
