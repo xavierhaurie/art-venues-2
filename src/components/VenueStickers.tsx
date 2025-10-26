@@ -19,18 +19,23 @@ export default function VenueStickers({ venueId, refreshSignal, initialStickers 
   const [loading, setLoading] = useState<boolean>(!initialStickers);
 
   useEffect(() => {
-    // If initialStickers provided, use them and skip fetch
-    if (initialStickers) {
+    // If initialStickers provided and this is the initial render (refreshSignal is falsy/0), use them and skip fetch
+    const isInitial = typeof refreshSignal === 'undefined' || refreshSignal === 0;
+    if (initialStickers && isInitial) {
+      console.debug(`VenueStickers: initialStickers provided for venue ${venueId}, using them (refreshSignal=${refreshSignal})`);
       setVenueStickers(initialStickers);
       setLoading(false);
       return;
     }
+    // Otherwise (including when refreshSignal increments), fetch latest stickers for the venue
+    console.debug(`VenueStickers: refreshSignal changed for venue ${venueId} -> ${refreshSignal}, loading stickers`);
     loadVenueStickers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venueId, refreshSignal, initialStickers]);
 
   const loadVenueStickers = async () => {
     try {
+      console.debug('VenueStickers: fetching stickers for venue', venueId);
       setLoading(true);
       const response = await fetch(`/api/venues/${venueId}/stickers`);
       if (response.ok) {

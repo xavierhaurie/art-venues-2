@@ -49,8 +49,24 @@ export async function POST(request: NextRequest) {
       }, { status: 409 });
     }
 
+    // Prepare container for affected venue ids (populated if force delete is performed)
+    let affectedVenueIds: string[] = [];
+
     // If force is true and assignments exist, delete assignments first
     if (assignments && assignments.length > 0 && force) {
+      // Get list of affected venue IDs so the client can refresh only those rows
+      const { data: affectedRows, error: affectedError } = await supabase
+        .from('sticker_assignment')
+        .select('venue_id')
+        .eq('sticker_meaning_id', meaningId);
+
+      if (affectedError) {
+        console.error('Error fetching affected venue ids for force delete:', affectedError);
+        return NextResponse.json({ error: 'Failed to determine affected venues' }, { status: 500 });
+      }
+
+      affectedVenueIds = Array.from(new Set((affectedRows || []).map((r: any) => r.venue_id)));
+
       const { error: deleteAssignError } = await supabase
         .from('sticker_assignment')
         .delete()
@@ -60,6 +76,8 @@ export async function POST(request: NextRequest) {
         console.error('Error deleting sticker assignments during force delete:', deleteAssignError);
         return NextResponse.json({ error: 'Failed to delete sticker assignments' }, { status: 500 });
       }
+
+      // Proceed to delete the meaning and return affectedVenueIds in the response below
     }
 
     // Delete the sticker meaning
@@ -72,6 +90,11 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error deleting sticker meaning:', error);
       return NextResponse.json({ error: 'Failed to delete sticker meaning' }, { status: 500 });
+    }
+
+    // If we performed a force delete earlier, include affectedVenueIds
+    if (force) {
+      return NextResponse.json({ success: true, affectedVenueIds });
     }
 
     return NextResponse.json({ success: true });

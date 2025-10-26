@@ -212,16 +212,50 @@ export default function VenueModal(props: any) {
 
   const handleAssignSticker = async (stickerMeaningId: any) => {
     try {
-      const response = await fetch(`/api/venues/${venue.id}/stickers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'assign', stickerMeaningId }) });
-      if (response.ok) { await loadVenueStickers(); if (onStickerUpdate) onStickerUpdate(); } else { const errorData = await response.json(); alert(errorData.error || 'Failed to assign sticker'); }
-    } catch (err) { console.error('Failed to assign sticker:', err); alert('Failed to assign sticker'); }
+      const response = await fetch(`/api/venues/${venue.id}/stickers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'assign', stickerMeaningId })
+      });
+
+      if (response.ok) {
+        await loadVenueStickers();
+        if (onStickerUpdate) {
+          console.debug('VenueModal: calling onStickerUpdate for assign', venue.id, stickerMeaningId);
+          onStickerUpdate(venue.id);
+        }
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Failed to assign sticker');
+      }
+    } catch (error) {
+      console.error('Failed to assign sticker:', error);
+      alert('Failed to assign sticker');
+    }
   };
 
   const handleUnassignSticker = async (stickerMeaningId: any) => {
     try {
-      const response = await fetch(`/api/venues/${venue.id}/stickers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'unassign', stickerMeaningId }) });
-      if (response.ok) { await loadVenueStickers(); if (onStickerUpdate) onStickerUpdate(); } else { const errorData = await response.json(); alert(errorData.error || 'Failed to unassign sticker'); }
-    } catch (err) { console.error('Failed to unassign sticker:', err); alert('Failed to unassign sticker'); }
+      const response = await fetch(`/api/venues/${venue.id}/stickers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unassign', stickerMeaningId })
+      });
+
+      if (response.ok) {
+        await loadVenueStickers();
+        if (onStickerUpdate) {
+          console.debug('VenueModal: calling onStickerUpdate for unassign', venue.id, stickerMeaningId);
+          onStickerUpdate(venue.id);
+        }
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Failed to unassign sticker');
+      }
+    } catch (error) {
+      console.error('Failed to unassign sticker:', error);
+      alert('Failed to unassign sticker');
+    }
   };
 
   const handleCreateStickerMeaning = async () => {
@@ -230,7 +264,7 @@ export default function VenueModal(props: any) {
     if (stickerFormData.details && stickerFormData.details.length > 1000) { alert('Details must be 1000 characters or less'); return; }
     try {
       const response = await fetch('/api/stickers/meanings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(stickerFormData) });
-      if (response.ok) { await loadStickerMeanings(); setShowCreateStickerDialog(false); setStickerFormData({ color: getNextAvailableColor(), label: '', details: '' }); if (onStickerUpdate) onStickerUpdate(); }
+      if (response.ok) { await loadStickerMeanings(); setShowCreateStickerDialog(false); setStickerFormData({ color: getNextAvailableColor(), label: '', details: '' }); if (onStickerUpdate) { console.debug('VenueModal: calling onStickerUpdate for create meaning', venue.id); onStickerUpdate(venue.id); } }
       else { const errorData = await response.json(); alert(errorData.error || 'Failed to create sticker'); }
     } catch (err) { console.error('Failed to create sticker:', err); alert('Failed to create sticker'); }
   };
@@ -239,21 +273,71 @@ export default function VenueModal(props: any) {
   const handleDeleteStickerMeaning = async (meaning: any) => {
     if (!confirm(`Delete sticker "${meaning.label}"? This will also remove all assignments of this sticker to venues.`)) return;
     try {
-      const response = await fetch(`/api/stickers/meanings/delete?id=${meaning.id}`, { method: 'POST' });
-      if (response.ok) { await loadStickerMeanings(); await loadVenueStickers(); if (onStickerUpdate) onStickerUpdate(); return; }
+      const response = await fetch(`/api/stickers/meanings/delete?id=${meaning.id}`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        await loadStickerMeanings();
+        await loadVenueStickers();
+        if (onStickerUpdate) {
+          console.debug('VenueModal: calling onStickerUpdate after delete (no assignments)', venue.id);
+          onStickerUpdate(venue.id);
+        }
+        return;
+      }
+
       const errorData = await response.json();
       if (errorData.hasAssignments) {
         const confirmed = confirm('This sticker is assigned to venues. Delete all assignments and the sticker?\n\nThis will remove the sticker from all venues permanently.');
         if (!confirmed) return;
+
+        // Attempt force delete
         try {
-          const forceResp = await fetch(`/api/stickers/meanings/delete?id=${meaning.id}&force=true`, { method: 'POST' });
-          if (forceResp.ok) { await loadStickerMeanings(); await loadVenueStickers(); if (onStickerUpdate) onStickerUpdate(); return; }
-          const forceData = await forceResp.json(); alert(forceData.error || 'Failed to force delete sticker');
-        } catch (err) { console.error('Force delete failed:', err); alert('Failed to force delete sticker'); }
+          const forceResp = await fetch(`/api/stickers/meanings/delete?id=${meaning.id}&force=true`, {
+            method: 'POST'
+          });
+
+          if (forceResp.ok) {
+            // Server returns affectedVenueIds for force deletes
+            const data = await forceResp.json();
+            await loadStickerMeanings();
+            await loadVenueStickers();
+
+            if (onStickerUpdate) {
+              // If server provided a list of affected venue ids, notify parent for each
+              const affected: string[] = Array.isArray(data.affectedVenueIds) ? data.affectedVenueIds : [];
+              console.debug('VenueModal: force delete affectedVenueIds=', affected);
+
+              if (affected.length > 0) {
+                affected.forEach((vid) => {
+                  try {
+                    console.debug('VenueModal: calling onStickerUpdate for affected venue', vid);
+                    onStickerUpdate(vid);
+                  } catch (e) { console.error('onStickerUpdate failed for venue', vid, e); }
+                });
+              } else {
+                // Fallback: refresh current venue
+                try { console.debug('VenueModal: force delete returned no ids, falling back to current venue', venue.id); onStickerUpdate(venue.id); } catch (e) { console.error('onStickerUpdate failed for current venue', e); }
+              }
+            }
+
+            return;
+          }
+
+          const forceData = await forceResp.json();
+          alert(forceData.error || 'Failed to force delete sticker');
+        } catch (err) {
+          console.error('Force delete failed:', err);
+          alert('Failed to force delete sticker');
+        }
       } else {
         alert(errorData.error || 'Failed to delete sticker');
       }
-    } catch (err) { console.error('Failed to delete sticker:', err); alert('Failed to delete sticker'); }
+    } catch (error) {
+      console.error('Failed to delete sticker:', error);
+      alert('Failed to delete sticker');
+    }
   };
 
   const assignedStickerIds = new Set((assignedStickers || []).map(s => s?.sticker_meaning_id));
