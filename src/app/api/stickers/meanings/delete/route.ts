@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserId } from '@/lib/session';
 import { supabase } from '@/lib/db';
 
-// POST /api/stickers/meanings/delete?id={meaningId} - Delete sticker meaning
+// POST /api/stickers/meanings/delete?id={meaningId}&force=true - Delete sticker meaning
 export async function POST(request: NextRequest) {
   try {
     const userId = await getCurrentUserId();
@@ -12,9 +12,22 @@ export async function POST(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const meaningId = searchParams.get('id');
+    const force = searchParams.get('force') === 'true';
 
     if (!meaningId) {
       return NextResponse.json({ error: 'Sticker meaning ID is required' }, { status: 400 });
+    }
+
+    // Verify ownership before any destructive actions
+    const { data: meaning, error: meaningError } = await supabase
+      .from('sticker_meaning')
+      .select('id')
+      .eq('id', meaningId)
+      .eq('artist_user_id', userId)
+      .single();
+
+    if (meaningError || !meaning) {
+      return NextResponse.json({ error: 'Sticker meaning not found' }, { status: 404 });
     }
 
     // Check if this sticker meaning has any assignments
@@ -29,25 +42,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to check sticker assignments' }, { status: 500 });
     }
 
-    if (assignments && assignments.length > 0) {
-      return NextResponse.json({ 
+    if (assignments && assignments.length > 0 && !force) {
+      return NextResponse.json({
         error: 'Cannot delete sticker meaning that is assigned to venues',
         hasAssignments: true
       }, { status: 409 });
     }
 
-    // Verify ownership before deletion
-    const { data: meaning } = await supabase
-      .from('sticker_meaning')
-      .select('id')
-      .eq('id', meaningId)
-      .eq('artist_user_id', userId)
-      .single();
+    // If force is true and assignments exist, delete assignments first
+    if (assignments && assignments.length > 0 && force) {
+      const { error: deleteAssignError } = await supabase
+        .from('sticker_assignment')
+        .delete()
+        .eq('sticker_meaning_id', meaningId);
 
-    if (!meaning) {
-      return NextResponse.json({ error: 'Sticker meaning not found' }, { status: 404 });
+      if (deleteAssignError) {
+        console.error('Error deleting sticker assignments during force delete:', deleteAssignError);
+        return NextResponse.json({ error: 'Failed to delete sticker assignments' }, { status: 500 });
+      }
     }
 
+    // Delete the sticker meaning
     const { error } = await supabase
       .from('sticker_meaning')
       .delete()

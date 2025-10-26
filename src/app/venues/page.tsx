@@ -64,6 +64,9 @@ export default function VenuesPage() {
     public_transit: '',
   });
 
+  // signal to force child components to refresh (increment on sticker changes)
+  const [stickerRefreshSignal, setStickerRefreshSignal] = useState(0);
+
   const [userVenueData, setUserVenueData] = useState<{[venueId: string]: UserVenueData}>({});
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [savingNotes, setSavingNotes] = useState<{[venueId: string]: boolean}>({});
@@ -350,6 +353,7 @@ export default function VenuesPage() {
                   <td className="p-0 border-r border-gray-200" style={{ minWidth: '120px', maxWidth: '200px' }}>
                     <VenueStickers
                       venueId={venue.id}
+                      refreshSignal={stickerRefreshSignal}
                     />
                   </td>
                   <td className="p-0 border-r border-gray-200" style={{ minWidth: '100px', maxWidth: '300px' }}>
@@ -457,6 +461,7 @@ export default function VenuesPage() {
           venue={selectedVenue}
           onClose={handleCloseModal}
           onNoteSaved={handleNoteSaved}
+          onStickerUpdate={() => setStickerRefreshSignal(s => s + 1)}
         />
       )}
     </div>

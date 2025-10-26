@@ -10,15 +10,16 @@ interface VenueSticker {
 
 interface VenueStickersProps {
   venueId: string;
+  refreshSignal?: number;
 }
 
-export default function VenueStickers({ venueId }: VenueStickersProps) {
+export default function VenueStickers({ venueId, refreshSignal }: VenueStickersProps) {
   const [venueStickers, setVenueStickers] = useState<VenueSticker[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadVenueStickers();
-  }, [venueId]);
+  }, [venueId, refreshSignal]);
 
   const loadVenueStickers = async () => {
     try {
