@@ -11,15 +11,23 @@ interface VenueSticker {
 interface VenueStickersProps {
   venueId: string;
   refreshSignal?: number;
+  initialStickers?: VenueSticker[];
 }
 
-export default function VenueStickers({ venueId, refreshSignal }: VenueStickersProps) {
-  const [venueStickers, setVenueStickers] = useState<VenueSticker[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function VenueStickers({ venueId, refreshSignal, initialStickers }: VenueStickersProps) {
+  const [venueStickers, setVenueStickers] = useState<VenueSticker[]>(initialStickers || []);
+  const [loading, setLoading] = useState<boolean>(!initialStickers);
 
   useEffect(() => {
+    // If initialStickers provided, use them and skip fetch
+    if (initialStickers) {
+      setVenueStickers(initialStickers);
+      setLoading(false);
+      return;
+    }
     loadVenueStickers();
-  }, [venueId, refreshSignal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [venueId, refreshSignal, initialStickers]);
 
   const loadVenueStickers = async () => {
     try {

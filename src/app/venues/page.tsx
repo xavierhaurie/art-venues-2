@@ -354,6 +354,7 @@ export default function VenuesPage() {
                     <VenueStickers
                       venueId={venue.id}
                       refreshSignal={stickerRefreshSignal}
+                      initialStickers={venue.user_stickers}
                     />
                   </td>
                   <td className="p-0 border-r border-gray-200" style={{ minWidth: '100px', maxWidth: '300px' }}>
