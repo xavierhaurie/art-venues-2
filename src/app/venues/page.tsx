@@ -398,6 +398,7 @@ export default function VenuesPage() {
                 <th className="p-2 text-left font-semibold border-r border-gray-300">Instagram</th>
                 <th className="p-2 text-left font-semibold border-r border-gray-300">Facebook</th>
                 <th className="p-2 text-left font-semibold border-r border-gray-300">Address</th>
+                <th className="p-2 text-left font-semibold border-r border-gray-300">Map Link</th>
                 <th className="p-2 text-left font-semibold">Public Transit</th>
               </tr>
             </thead>
@@ -419,7 +420,7 @@ export default function VenuesPage() {
                   <td className="p-2 border-r border-gray-200">
                     <button
                       onClick={() => handleVenueClick(venue.id)}
-                      className="text-blue-600 hover:text-blue-800 hover:underline text-left"
+                      className="text-blue-600 hover:text-blue-800 hover:underline text-left cursor-pointer"
                     >
                       {venue.name}
                     </button>
@@ -447,7 +448,7 @@ export default function VenuesPage() {
                   <td className="p-2 border-r border-gray-200">
                     {venue.instagram && (
                       <a
-                        href={`https://instagram.com/${venue.instagram}`}
+                        href={venue.instagram.startsWith('http') ? venue.instagram : `https://www.instagram.com/${venue.instagram}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-800"
@@ -469,6 +470,18 @@ export default function VenuesPage() {
                     )}
                   </td>
                   <td className="p-2 border-r border-gray-200">{venue.address}</td>
+                  <td className="p-2 border-r border-gray-200">
+                    {venue.map_link && (
+                      <a
+                        href={venue.map_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        Link
+                      </a>
+                    )}
+                  </td>
                   <td className="p-2">{venue.public_transit}</td>
                 </tr>
               ))}
