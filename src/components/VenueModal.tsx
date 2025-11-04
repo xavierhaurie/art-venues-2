@@ -16,6 +16,10 @@ export default function VenueModal(props: any) {
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<any>(null);
 
+  // Image display state
+  const [hoveredImageId, setHoveredImageId] = useState<string | null>(null);
+  const [clickedImageId, setClickedImageId] = useState<string | null>(null);
+
   // Sticker-related state
   const [stickerMeanings, setStickerMeanings] = useState<any[]>([]);
   const [assignedStickers, setAssignedStickers] = useState<any[]>([]);
@@ -504,18 +508,35 @@ export default function VenueModal(props: any) {
                 <button onClick={() => fileInputRef.current?.click()} disabled={venueImages.length >= 20} style={{ padding: '0.4rem 0.75rem', backgroundColor: venueImages.length >= 20 ? '#9ca3af' : '#3b82f6', color: 'white', border: 'none', borderRadius: 6, fontSize: '0.875rem', cursor: venueImages.length >= 20 ? 'not-allowed' : 'pointer' }}>Upload Images</button>
               </div>
 
-              {/* Thumbnails row (horizontal) */}
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+              {/* Thumbnails - wrapping rows, 100px max dimension */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
                 {venueImages.map((image) => (
-                  <div key={image.id} style={{ position: 'relative', flex: '0 0 auto' }}>
+                  <div
+                    key={image.id}
+                    style={{ position: 'relative', flex: '0 0 auto' }}
+                    onMouseEnter={() => setHoveredImageId(image.id)}
+                    onMouseLeave={() => setHoveredImageId(null)}
+                    onClick={() => setClickedImageId(image.id)}
+                  >
                     <img
                       src={image.url}
                       alt=""
-                      style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', display: 'block' }}
+                      style={{
+                        width: 100,
+                        height: 100,
+                        objectFit: 'cover',
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                        display: 'block',
+                        border: (hoveredImageId === image.id || clickedImageId === image.id) ? '3px solid #3b82f6' : '1px solid #e5e7eb'
+                      }}
                     />
                     <button
-                      onClick={() => handleDeleteImage(image.id)}
-                      style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: 18, height: 18, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteImage(image.id);
+                      }}
+                      style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                       title="Delete image"
                     >
                       ×
@@ -524,14 +545,45 @@ export default function VenueModal(props: any) {
                 ))}
               </div>
 
-              {/* Full-size images shown below, one per row, centered, max dimension 800px */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', marginTop: '0.75rem' }}>
-                {venueImages.map((image) => (
-                  <div key={image.id} style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                    <img src={image.url} alt="Uploaded" style={{ maxWidth: '800px', maxHeight: '800px', width: '100%', height: 'auto', borderRadius: 8 }} />
-                  </div>
-                ))}
-              </div>
+              {/* Full-size image display area - shows hovered or clicked image, or placeholder */}
+              {venueImages.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: 8, marginTop: '0.75rem' }}>
+                  {(hoveredImageId || clickedImageId) ? (
+                    <img
+                      src={venueImages.find(img => img.id === (hoveredImageId || clickedImageId))?.url}
+                      alt="Full size"
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '800px',
+                        width: 'auto',
+                        height: 'auto',
+                        borderRadius: 8,
+                        objectFit: 'contain'
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: '100%',
+                        aspectRatio: '1 / 1',
+                        maxWidth: '800px',
+                        maxHeight: '800px',
+                        backgroundColor: '#d1d5db',
+                        border: '2px dashed #9ca3af',
+                        borderRadius: 8,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1rem',
+                        color: '#6b7280',
+                        fontWeight: 500
+                      }}
+                    >
+                      Hover over or click a thumbnail
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Footer: no cancel button per request (actions are in-note area) */}
