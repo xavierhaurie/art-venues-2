@@ -423,45 +423,23 @@ export default function VenueModal(props: any) {
 
           {/* Content */}
           <div style={{ padding: '1.5rem', flex: 1, overflow: 'auto' }}>
-            {/* Notes Section */}
+            {/* Venue Information Section */}
             <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>My Notes {hasUnsavedChanges && <span style={{ color: '#dc2626', fontSize: '0.875rem', marginLeft: '0.5rem' }}>(Unsaved changes)</span>}</h3>
-              <textarea value={localNotes} onChange={(e) => handleNotesChange(e.target.value)} disabled={isSaving} style={{ width: '100%', minHeight: 200, padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 16, fontFamily: 'inherit', resize: 'vertical', outline: 'none', backgroundColor: isSaving ? '#f9fafb' : 'white' }} placeholder="Add your notes about this venue..." />
-
-              {/* Reset + Save notes buttons moved here */}
-              <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => { setLocalNotes(originalNotes); setHasUnsavedChanges(false); }}
-                  disabled={isSaving || uploadingCount > 0}
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    backgroundColor: 'white',
-                    color: '#374151',
-                    border: '1px solid #d1d5db',
-                    borderRadius: 6,
-                    fontSize: '0.875rem',
-                    fontWeight: 500,
-                    cursor: (isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  Reset
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={!hasUnsavedChanges || isSaving || uploadingCount > 0}
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    backgroundColor: (!hasUnsavedChanges || isSaving || uploadingCount > 0) ? '#9ca3af' : '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 6,
-                    fontSize: '0.875rem',
-                    fontWeight: 500,
-                    cursor: (!hasUnsavedChanges || isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {isSaving ? 'Saving...' : 'Save notes'}
-                </button>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.75rem' }}>Venue Information</h3>
+              <div style={{ fontSize: '0.875rem', lineHeight: 1.6 }}>
+                <div style={{ marginBottom: '0.5rem' }}><strong>Name:</strong> {venue?.name}</div>
+                <div style={{ marginBottom: '0.5rem' }}><strong>Type:</strong> {venue?.type}</div>
+                <div style={{ marginBottom: '0.5rem' }}><strong>Locality:</strong> {venue?.locality}</div>
+                <div style={{ marginBottom: '0.5rem' }}><strong>Region:</strong> {venue?.region_code}</div>
+                {venue?.address && <div style={{ marginBottom: '0.5rem' }}><strong>Address:</strong> {venue.address}</div>}
+                {venue?.website_url && <div style={{ marginBottom: '0.5rem' }}><strong>Website:</strong> <a href={venue.website_url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline' }}>{venue.website_url}</a></div>}
+                {venue?.facebook && <div style={{ marginBottom: '0.5rem' }}><strong>Facebook:</strong> <a href={venue.facebook} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline' }}>{venue.facebook}</a></div>}
+                {venue?.instagram && <div style={{ marginBottom: '0.5rem' }}><strong>Instagram:</strong> <a href={venue.instagram} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline' }}>{venue.instagram}</a></div>}
+                {venue?.public_transit && <div style={{ marginBottom: '0.5rem' }}><strong>Public Transit:</strong> {venue.public_transit}</div>}
+                {venue?.map_link && <div style={{ marginBottom: '0.5rem' }}><strong>Map:</strong> <a href={venue.map_link} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline' }}>View on Map</a></div>}
+                {venue?.artist_summary && <div style={{ marginBottom: '0.5rem' }}><strong>Artist Summary:</strong> {venue.artist_summary}</div>}
+                {venue?.visitor_summary && <div style={{ marginBottom: '0.5rem' }}><strong>Visitor Summary:</strong> {venue.visitor_summary}</div>}
+                <div style={{ marginBottom: '0.5rem' }}><strong>Claim Status:</strong> {venue?.claim_status}</div>
               </div>
             </div>
 
@@ -496,6 +474,48 @@ export default function VenueModal(props: any) {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            {/* Notes Section */}
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>My Notes {hasUnsavedChanges && <span style={{ color: '#dc2626', fontSize: '0.875rem', marginLeft: '0.5rem' }}>(Unsaved changes)</span>}</h3>
+              <textarea value={localNotes} onChange={(e) => handleNotesChange(e.target.value)} disabled={isSaving} style={{ width: '100%', minHeight: 200, padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 16, fontFamily: 'inherit', resize: 'vertical', outline: 'none', backgroundColor: isSaving ? '#f9fafb' : 'white' }} placeholder="Add your notes about this venue..." />
+
+              {/* Reset + Save notes buttons */}
+              <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => { setLocalNotes(originalNotes); setHasUnsavedChanges(false); }}
+                  disabled={isSaving || uploadingCount > 0}
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    backgroundColor: 'white',
+                    color: '#374151',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: (isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={!hasUnsavedChanges || isSaving || uploadingCount > 0}
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    backgroundColor: (!hasUnsavedChanges || isSaving || uploadingCount > 0) ? '#9ca3af' : '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: (!hasUnsavedChanges || isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {isSaving ? 'Saving...' : 'Save notes'}
+                </button>
               </div>
             </div>
 
