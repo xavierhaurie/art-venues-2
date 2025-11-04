@@ -26,6 +26,10 @@ export async function GET(request: NextRequest) {
     const public_transit = searchParams.get('public_transit') as 'yes' | 'partial' | 'no' | undefined;
     const has_open_call = searchParams.get('has_open_call') === 'true';
 
+    // Parse sticker filter parameter
+    const sticker_ids_param = searchParams.get('sticker_ids');
+    const sticker_ids = sticker_ids_param ? sticker_ids_param.split(',') : undefined;
+
     // Parse sorting parameters
     const sort = (searchParams.get('sort') || 'name') as 'name' | 'locality';
     const sort_order = (searchParams.get('sort_order') || 'asc') as 'asc' | 'desc';
@@ -43,6 +47,7 @@ export async function GET(request: NextRequest) {
       sort,
       sort_order,
       q,
+      sticker_ids,
     };
 
     // Use search function if query provided, otherwise use regular listing

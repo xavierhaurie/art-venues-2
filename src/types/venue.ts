@@ -56,6 +56,7 @@ export interface VenueListParams {
   sort?: 'name' | 'locality';
   sort_order?: 'asc' | 'desc';
   q?: string; // search query
+  sticker_ids?: string[]; // filter by sticker meaning IDs
 }
 
 export interface VenueListResponse {

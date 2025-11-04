@@ -21,10 +21,96 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     has_open_call = false,
     sort = 'name',
     sort_order = 'asc',
+    sticker_ids,
   } = params;
 
   const offset = (page - 1) * page_size;
 
+  // If sticker filtering is requested, we need to filter venues that have at least one of the selected stickers
+  if (sticker_ids && sticker_ids.length > 0 && userId) {
+    // First, get venue IDs that have any of the selected stickers for this user
+    const { data: assignmentData, error: assignmentError } = await supabase
+      .from('sticker_assignment')
+      .select('venue_id')
+      .eq('artist_user_id', userId)
+      .in('sticker_meaning_id', sticker_ids);
+
+    if (assignmentError) {
+      throw new Error(`Failed to fetch sticker assignments: ${assignmentError.message}`);
+    }
+
+    const venueIdsWithStickers = Array.from(new Set((assignmentData || []).map(a => a.venue_id)));
+
+    if (venueIdsWithStickers.length === 0) {
+      // No venues have the selected stickers, return empty result
+      return {
+        venues: [],
+        total: 0,
+        page,
+        page_size,
+        total_pages: 0,
+        has_next: false,
+        has_prev: false,
+      };
+    }
+
+    // Build the select with LEFT JOIN to notes and sticker assignments
+    const selectClause = `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
+       note(id, body, artist_user_id),
+       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color))`;
+
+    let query = supabase
+      .from('venue')
+      .select(selectClause, { count: 'exact' })
+      .in('id', venueIdsWithStickers);
+
+    // Apply other filters
+    if (locality) {
+      query = query.eq('locality', locality);
+    }
+
+    if (type) {
+      query = query.eq('type', type);
+    }
+
+    if (public_transit) {
+      query = query.eq('public_transit', public_transit);
+    }
+
+    if (has_open_call) {
+      query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+    }
+
+    // Apply sorting
+    const sortColumn = sort === 'locality' ? 'locality' : 'name';
+    query = query.order(sortColumn, { ascending: sort_order === 'asc' });
+
+    // Apply pagination
+    query = query.range(offset, offset + page_size - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      throw new Error(`Failed to fetch venues: ${error.message}`);
+    }
+
+    // Transform and return
+    const venues = transformVenueData(data || [], userId);
+    const total = count || 0;
+    const total_pages = Math.ceil(total / page_size);
+
+    return {
+      venues,
+      total,
+      page,
+      page_size,
+      total_pages,
+      has_next: page < total_pages,
+      has_prev: page > 1,
+    };
+  }
+
+  // Original logic when no sticker filtering
   // Build the select with LEFT JOIN to notes and sticker assignments
   const selectClause = userId
     ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
@@ -67,7 +153,25 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
   }
 
   // Transform the data to include notes and stickers in a flat structure
-  const venues = (data || []).map((venue: any) => {
+  const venues = transformVenueData(data || [], userId);
+
+  const total = count || 0;
+  const total_pages = Math.ceil(total / page_size);
+
+  return {
+    venues: venues as Venue[],
+    total,
+    page,
+    page_size,
+    total_pages,
+    has_next: page < total_pages,
+    has_prev: page > 1,
+  };
+}
+
+// Helper function to transform venue data
+function transformVenueData(data: any[], userId?: string): any[] {
+  return data.map((venue: any) => {
     const result: any = { ...venue };
 
     // Handle notes
@@ -97,19 +201,6 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
 
     return result;
   });
-
-  const total = count || 0;
-  const total_pages = Math.ceil(total / page_size);
-
-  return {
-    venues: venues as Venue[],
-    total,
-    page,
-    page_size,
-    total_pages,
-    has_next: page < total_pages,
-    has_prev: page > 1,
-  };
 }
 
 /**

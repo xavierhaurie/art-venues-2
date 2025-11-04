@@ -64,6 +64,10 @@ export default function VenuesPage() {
     public_transit: '',
   });
 
+  // Sticker filter state
+  const [stickerMeanings, setStickerMeanings] = useState<Array<{id: string, color: string, label: string, details: string | null}>>([]);
+  const [selectedStickerFilters, setSelectedStickerFilters] = useState<string[]>([]); // Array of sticker_meaning_id
+
   // per-venue refresh signals: increment a venue's counter to tell its row to refresh
   const [stickerRefreshSignals, setStickerRefreshSignals] = useState<Record<string, number>>({});
 
@@ -95,7 +99,7 @@ export default function VenuesPage() {
 
   const { selectedVenueId, openModal, closeModal } = useVenueStore();
 
-  const fetchVenues = async (page = 1, search = '', filterParams = filters, append = false) => {
+  const fetchVenues = async (page = 1, search = '', filterParams = filters, stickerFilters = selectedStickerFilters, append = false) => {
     try {
       if (!append) {
         setLoading(true);
@@ -108,6 +112,11 @@ export default function VenuesPage() {
         ...(filterParams.type && { type: filterParams.type }),
         ...(filterParams.public_transit && { public_transit: filterParams.public_transit }),
       });
+
+      // Add sticker filters
+      if (stickerFilters.length > 0) {
+        params.append('sticker_ids', stickerFilters.join(','));
+      }
 
       const response = await fetch(`/api/venues?${params}`);
       if (!response.ok) {
@@ -151,7 +160,20 @@ export default function VenuesPage() {
 
   useEffect(() => {
     fetchVenues();
+    loadStickerMeanings();
   }, []);
+
+  const loadStickerMeanings = async () => {
+    try {
+      const response = await fetch('/api/stickers/meanings');
+      if (response.ok) {
+        const data = await response.json();
+        setStickerMeanings(data.meanings || []);
+      }
+    } catch (err) {
+      console.error('Failed to load sticker meanings:', err);
+    }
+  };
 
   // Handle clicking outside tooltip to close it
   useEffect(() => {
@@ -204,7 +226,7 @@ export default function VenuesPage() {
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading && !loadingMore.current) {
           loadingMore.current = true;
-          fetchVenues(currentPage + 1, searchQuery, filters, true);
+          fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, true);
         }
       },
       { threshold: 0.1 }
@@ -259,7 +281,7 @@ export default function VenuesPage() {
     e.preventDefault();
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, false);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, false);
   };
 
   const handleFilterChange = (key: string, value: string) => {
@@ -267,7 +289,18 @@ export default function VenuesPage() {
     setFilters(newFilters);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, newFilters, false);
+    fetchVenues(1, searchQuery, newFilters, selectedStickerFilters, false);
+  };
+
+  const handleStickerFilterToggle = (stickerMeaningId: string) => {
+    const newSelectedFilters = selectedStickerFilters.includes(stickerMeaningId)
+      ? selectedStickerFilters.filter(id => id !== stickerMeaningId)
+      : [...selectedStickerFilters, stickerMeaningId];
+
+    setSelectedStickerFilters(newSelectedFilters);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, searchQuery, filters, newSelectedFilters, false);
   };
 
   const handleVenueClick = (venueId: string) => {
@@ -559,6 +592,73 @@ export default function VenuesPage() {
               <option value="partial">Partial</option>
               <option value="no">No</option>
             </select>
+          </div>
+        </div>
+
+        {/* Sticker Filters Section */}
+        <div className="mb-6 p-4 bg-white border border-gray-300 rounded-lg">
+          <h3 className="text-lg font-semibold mb-3">Click filters to filter by:</h3>
+
+          {/* Available filters (top row) */}
+          <div className="mb-3">
+            <div className="text-sm font-medium text-gray-600 mb-2">Available Filters:</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {stickerMeanings.filter(meaning => !selectedStickerFilters.includes(meaning.id)).map((meaning) => (
+                <div
+                  key={meaning.id}
+                  onClick={() => handleStickerFilterToggle(meaning.id)}
+                  style={{
+                    backgroundColor: meaning.color,
+                    fontSize: '14px',
+                    padding: '5px',
+                    borderRadius: '5px',
+                    margin: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    border: '2px solid transparent',
+                    transition: 'border-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
+                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+                  title={meaning.details || meaning.label}
+                >
+                  {meaning.label}
+                </div>
+              ))}
+              {stickerMeanings.filter(meaning => !selectedStickerFilters.includes(meaning.id)).length === 0 && (
+                <div className="text-gray-500 text-sm italic">All filters selected</div>
+              )}
+            </div>
+          </div>
+
+          {/* Selected filters (bottom row) */}
+          <div>
+            <div className="text-sm font-medium text-gray-600 mb-2">Selected Filters:</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {stickerMeanings.filter(meaning => selectedStickerFilters.includes(meaning.id)).map((meaning) => (
+                <div
+                  key={meaning.id}
+                  onClick={() => handleStickerFilterToggle(meaning.id)}
+                  style={{
+                    backgroundColor: meaning.color,
+                    fontSize: '14px',
+                    padding: '5px',
+                    borderRadius: '5px',
+                    margin: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    border: '2px solid #3b82f6',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  }}
+                  title={meaning.details || meaning.label}
+                >
+                  {meaning.label}
+                </div>
+              ))}
+              {selectedStickerFilters.length === 0 && (
+                <div className="text-gray-500 text-sm italic">No filters selected (showing all venues)</div>
+              )}
+            </div>
           </div>
         </div>
 
