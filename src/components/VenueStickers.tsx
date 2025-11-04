@@ -67,7 +67,8 @@ export default function VenueStickers({ venueId, refreshSignal, initialStickers 
             backgroundColor: sticker.color,
             fontSize: '14px',
             padding: '5px',
-            borderRadius: '5px'
+            borderRadius: '5px',
+            margin: '4px'
           }}
           title={sticker.details || sticker.label}
         >

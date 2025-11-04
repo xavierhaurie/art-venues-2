@@ -327,8 +327,8 @@ export default function VenuesPage() {
     const rect = event.currentTarget.getBoundingClientRect();
     setHoveredCell({
       content,
-      x: rect.left + rect.width / 2,
-      y: rect.top
+      x: rect.left + 15,
+      y: rect.top + 10
     });
   };
 
@@ -337,8 +337,8 @@ export default function VenuesPage() {
     const rect = event.currentTarget.getBoundingClientRect();
     setClickedCell({
       content,
-      x: rect.left + rect.width / 2,
-      y: rect.top
+      x: rect.left + 15,
+      y: rect.top + 10
     });
     setHoveredCell(null); // Clear hover when clicked
   };
@@ -413,7 +413,10 @@ export default function VenuesPage() {
     const images = venueImages[venueId] || [];
 
     return (
-      <div>
+      <div
+        onClick={() => handleVenueClick(venueId)}
+        style={{ cursor: 'pointer' }}
+      >
         {/* Stickers */}
         {venue.user_stickers && venue.user_stickers.length > 0 && (
           <div style={{ marginBottom: '8px' }}>
@@ -454,6 +457,13 @@ export default function VenuesPage() {
         {!venue.user_stickers?.length && !venueData?.notes && images.length === 0 && (
           <div>No stickers, notes, or artwork</div>
         )}
+
+        {/* Instruction text */}
+        <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
+          <em style={{ fontSize: '13px', color: '#6b7280' }}>
+            (Click to open venue details)
+          </em>
+        </div>
       </div>
     );
   };
@@ -690,8 +700,7 @@ export default function VenuesPage() {
           style={{
             position: 'fixed',
             left: (clickedCell || hoveredCell)!.x,
-            top: (clickedCell || hoveredCell)!.y - 10,
-            transform: 'translate(-50%, -100%)',
+            top: (clickedCell || hoveredCell)!.y,
             backgroundColor: 'white',
             border: '2px solid #3b82f6',
             borderRadius: '8px',
