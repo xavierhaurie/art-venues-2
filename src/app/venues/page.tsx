@@ -72,9 +72,22 @@ export default function VenuesPage() {
   const [savingNotes, setSavingNotes] = useState<{[venueId: string]: boolean}>({});
   const noteTimeouts = useRef<{[venueId: string]: NodeJS.Timeout}>({});
 
+  // Text tooltip state for hover/click on name, artist_summary, visitor_summary
+  const [hoveredCell, setHoveredCell] = useState<{content: React.ReactNode, x: number, y: number} | null>(null);
+  const [clickedCell, setClickedCell] = useState<{content: React.ReactNode, x: number, y: number} | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  // Venue images state
+  const [venueImages, setVenueImages] = useState<Record<string, Array<{id: string, url: string}>>>({});
+
   // Infinite scroll
   const observerTarget = useRef<HTMLDivElement>(null);
   const loadingMore = useRef(false);
+
+  // Scrollbar sync refs
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const mainScrollRef = useRef<HTMLDivElement>(null);
+  const bottomScrollRef = useRef<HTMLDivElement>(null);
 
   // Full venue data for modal (includes contact info)
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
@@ -140,6 +153,20 @@ export default function VenuesPage() {
     fetchVenues();
   }, []);
 
+  // Handle clicking outside tooltip to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (clickedCell && tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
+        setClickedCell(null);
+      }
+    };
+
+    if (clickedCell) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [clickedCell]);
+
   // Fetch full venue data when modal opens
   useEffect(() => {
     if (selectedVenueId) {
@@ -194,6 +221,39 @@ export default function VenuesPage() {
       }
     };
   }, [hasMore, loading, currentPage, searchQuery, filters]);
+
+  // Sync scrollbars
+  useEffect(() => {
+    const topScroll = topScrollRef.current;
+    const mainScroll = mainScrollRef.current;
+    const bottomScroll = bottomScrollRef.current;
+
+    if (!topScroll || !mainScroll || !bottomScroll) return;
+
+    const syncScroll = (source: HTMLDivElement, targets: HTMLDivElement[]) => {
+      return () => {
+        targets.forEach(target => {
+          if (target !== source) {
+            target.scrollLeft = source.scrollLeft;
+          }
+        });
+      };
+    };
+
+    const topListener = syncScroll(topScroll, [mainScroll, bottomScroll]);
+    const mainListener = syncScroll(mainScroll, [topScroll, bottomScroll]);
+    const bottomListener = syncScroll(bottomScroll, [topScroll, mainScroll]);
+
+    topScroll.addEventListener('scroll', topListener);
+    mainScroll.addEventListener('scroll', mainListener);
+    bottomScroll.addEventListener('scroll', bottomListener);
+
+    return () => {
+      topScroll.removeEventListener('scroll', topListener);
+      mainScroll.removeEventListener('scroll', mainListener);
+      bottomScroll.removeEventListener('scroll', bottomListener);
+    };
+  }, [venues]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -263,6 +323,42 @@ export default function VenuesPage() {
     }, 500);
   };
 
+  const handleCellHover = (event: React.MouseEvent<HTMLElement>, content: React.ReactNode) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setHoveredCell({
+      content,
+      x: rect.left + rect.width / 2,
+      y: rect.top
+    });
+  };
+
+  const handleCellClick = (event: React.MouseEvent<HTMLElement>, content: React.ReactNode) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    setClickedCell({
+      content,
+      x: rect.left + rect.width / 2,
+      y: rect.top
+    });
+    setHoveredCell(null); // Clear hover when clicked
+  };
+
+  const loadVenueImages = async (venueId: string) => {
+    if (venueImages[venueId]) return; // Already loaded
+    try {
+      const response = await fetch(`/api/venues/${venueId}/images`);
+      if (response.ok) {
+        const data = await response.json();
+        setVenueImages(prev => ({
+          ...prev,
+          [venueId]: data.images || []
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to load images for venue:', venueId, err);
+    }
+  };
+
   const saveNotes = async (venueId: string, noteBody: string) => {
     setSavingNotes(prev => ({ ...prev, [venueId]: true }));
     try {
@@ -300,6 +396,68 @@ export default function VenuesPage() {
     }
   };
 
+  const renderVenueNameTooltip = (name: string): React.ReactNode => {
+    return (
+      <>
+        {name}
+        <br /><br />
+        <em style={{ fontSize: '13px', color: '#6b7280' }}>
+          (Click the venue name for details and to edit stickers and notes)
+        </em>
+      </>
+    );
+  };
+
+  const renderStickersNotesArtworkTooltip = (venue: Venue, venueId: string): React.ReactNode => {
+    const venueData = userVenueData[venueId];
+    const images = venueImages[venueId] || [];
+
+    return (
+      <div>
+        {/* Stickers */}
+        {venue.user_stickers && venue.user_stickers.length > 0 && (
+          <div style={{ marginBottom: '8px' }}>
+            <strong>Stickers:</strong> {venue.user_stickers.map(s => s.label).join(', ')}
+          </div>
+        )}
+
+        {/* Notes */}
+        {venueData?.notes && (
+          <div style={{ marginBottom: '8px' }}>
+            <strong>Notes:</strong> {venueData.notes}
+          </div>
+        )}
+
+        {/* Artwork - 100px thumbnails in tooltip */}
+        {images.length > 0 && (
+          <div>
+            <strong>Artwork:</strong>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+              {images.map((image) => (
+                <img
+                  key={image.id}
+                  src={image.url}
+                  alt="Artwork"
+                  style={{
+                    width: '100px',
+                    height: '100px',
+                    objectFit: 'cover',
+                    borderRadius: '4px',
+                    border: '1px solid #e5e7eb'
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!venue.user_stickers?.length && !venueData?.notes && images.length === 0 && (
+          <div>No stickers, notes, or artwork</div>
+        )}
+      </div>
+    );
+  };
+
   const renderNotesCell = (venueId: string) => {
     const venueData = userVenueData[venueId];
     if (!venueData || !venueData.notes) return null;
@@ -327,7 +485,7 @@ export default function VenuesPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 font-sans">
+    <div className="container mx-auto px-4 py-8 font-sans" style={{ margin: '2rem' }}>
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-6">Art Venues</h1>
 
@@ -400,56 +558,118 @@ export default function VenuesPage() {
           </div>
         )}
 
-        <div className="overflow-x-auto border border-gray-300 rounded-lg">
+        {/* Top scrollbar */}
+        <div ref={topScrollRef} className="overflow-x-auto border border-gray-300 rounded-t-lg" style={{ overflowY: 'hidden' }}>
+          <div style={{ width: '2000px', height: '1px' }}></div>
+        </div>
+
+        {/* Main table with scrollbar */}
+        <div ref={mainScrollRef} className="overflow-x-auto border-l border-r border-b border-gray-300">
           <table className="w-full text-sm border-collapse">
             <thead className="bg-gray-100 border-b border-gray-300">
               <tr>
-                <th className="p-2 text-left font-semibold border-r border-gray-300">Stickers</th>
-                <th className="p-2 text-left font-semibold border-r border-gray-300">Notes</th>
-                <th className="p-2 text-left font-semibold border-r border-gray-300">Name</th>
-                <th className="p-2 text-left font-semibold border-r border-gray-300">Type</th>
-                <th className="p-2 text-left font-semibold border-r border-gray-300">Locality</th>
-                <th className="p-2 text-left font-semibold border-r border-gray-300">Artist Summary</th>
-                <th className="p-2 text-left font-semibold border-r border-gray-300">Visitor Summary</th>
-                <th className="p-2 text-left font-semibold">Public Transit</th>
+                <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Stickers, Notes & Artwork</th>
+                <th className="text-left font-semibold" style={{ padding: '5px', minWidth: '300px', maxWidth: '400px', borderRight: '1px solid #e0e0e0' }}>Name</th>
+                <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Type</th>
+                <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Locality</th>
+                <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Artist Summary</th>
+                <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Visitor Summary</th>
+                <th className="text-left font-semibold" style={{ padding: '5px' }}>Public Transit</th>
               </tr>
             </thead>
             <tbody>
               {venues.map((venue, index) => (
                 <tr
                   key={venue.id}
-                  className={index % 2 === 0 ? 'bg-green-50' : 'bg-white'}
+                  style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#f2f3f5' }}
                 >
-                  <td className="p-0 border-r border-gray-200" style={{ minWidth: '120px', maxWidth: '200px' }}>
-                    <VenueStickers
-                      venueId={venue.id}
-                      refreshSignal={stickerRefreshSignals[venue.id] || 0}
-                      initialStickers={venue.user_stickers}
-                    />
-                  </td>
-                  <td className="p-0 border-r border-gray-200" style={{ minWidth: '100px', maxWidth: '300px' }}>
-                    {renderNotesCell(venue.id)}
+                  <td style={{ padding: '5px', minWidth: '220px', maxWidth: '500px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
+                    <div
+                      style={{ display: 'flex', flexDirection: 'column', gap: '4px', cursor: 'pointer' }}
+                      onMouseEnter={(e) => {
+                        loadVenueImages(venue.id); // Load images if not already loaded
+                        handleCellHover(e, renderStickersNotesArtworkTooltip(venue, venue.id));
+                      }}
+                      onMouseLeave={() => setHoveredCell(null)}
+                      onClick={(e) => {
+                        loadVenueImages(venue.id);
+                        handleCellClick(e, renderStickersNotesArtworkTooltip(venue, venue.id));
+                      }}
+                    >
+                      <VenueStickers
+                        venueId={venue.id}
+                        refreshSignal={stickerRefreshSignals[venue.id] || 0}
+                        initialStickers={venue.user_stickers}
+                      />
+                      {renderNotesCell(venue.id)}
+                      {/* Artwork thumbnails - 50px max in table cell */}
+                      {venueImages[venue.id] && venueImages[venue.id].length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                          {venueImages[venue.id].map((image) => (
+                            <img
+                              key={image.id}
+                              src={image.url}
+                              alt="Artwork"
+                              style={{
+                                width: '50px',
+                                height: '50px',
+                                objectFit: 'cover',
+                                borderRadius: '4px',
+                                border: '1px solid #e5e7eb'
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td
-                    className="p-2 border-r border-gray-200 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-                    onClick={() => handleVenueClick(venue.id)}
-                    style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}
+                    className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                    style={{ padding: '5px', minWidth: '300px', maxWidth: '400px', fontWeight: 'bold', borderRight: '1px solid #e0e0e0', position: 'relative' }}
                   >
-                    {venue.name}
+                    <div
+                      style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}
+                      onMouseEnter={(e) => handleCellHover(e, renderVenueNameTooltip(venue.name))}
+                      onMouseLeave={() => setHoveredCell(null)}
+                      onClick={() => handleVenueClick(venue.id)}
+                    >
+                      {venue.name}
+                    </div>
                   </td>
-                  <td className="p-2 border-r border-gray-200">{venue.type}</td>
-                  <td className="p-2 border-r border-gray-200">{venue.locality}</td>
-                  <td className="p-2 border-r border-gray-200" style={{ maxWidth: '250px' }}>
-                    <div className="truncate">{venue.artist_summary}</div>
+                  <td style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>{venue.type}</td>
+                  <td style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>{venue.locality}</td>
+                  <td style={{ padding: '5px', maxWidth: '250px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
+                    <div
+                      className="truncate"
+                      style={{ cursor: 'pointer' }}
+                      onMouseEnter={(e) => venue.artist_summary && handleCellHover(e, venue.artist_summary)}
+                      onMouseLeave={() => setHoveredCell(null)}
+                      onClick={(e) => venue.artist_summary && handleCellClick(e, venue.artist_summary)}
+                    >
+                      {venue.artist_summary}
+                    </div>
                   </td>
-                  <td className="p-2 border-r border-gray-200" style={{ maxWidth: '250px' }}>
-                    <div className="truncate">{venue.visitor_summary}</div>
+                  <td style={{ padding: '5px', maxWidth: '250px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
+                    <div
+                      className="truncate"
+                      style={{ cursor: 'pointer' }}
+                      onMouseEnter={(e) => venue.visitor_summary && handleCellHover(e, venue.visitor_summary)}
+                      onMouseLeave={() => setHoveredCell(null)}
+                      onClick={(e) => venue.visitor_summary && handleCellClick(e, venue.visitor_summary)}
+                    >
+                      {venue.visitor_summary}
+                    </div>
                   </td>
-                  <td className="p-2">{venue.public_transit}</td>
+                  <td style={{ padding: '5px' }}>{venue.public_transit}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Bottom scrollbar */}
+        <div ref={bottomScrollRef} className="overflow-x-auto border-l border-r border-b border-gray-300 rounded-b-lg" style={{ overflowY: 'hidden' }}>
+          <div style={{ width: '2000px', height: '1px' }}></div>
         </div>
 
         {/* Infinite scroll sentinel */}
@@ -462,6 +682,35 @@ export default function VenuesPage() {
           )}
         </div>
       </div>
+
+      {/* Text tooltip overlay */}
+      {(hoveredCell || clickedCell) && (
+        <div
+          ref={tooltipRef}
+          style={{
+            position: 'fixed',
+            left: (clickedCell || hoveredCell)!.x,
+            top: (clickedCell || hoveredCell)!.y - 10,
+            transform: 'translate(-50%, -100%)',
+            backgroundColor: 'white',
+            border: '2px solid #3b82f6',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            minWidth: '200px',
+            maxWidth: '500px',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            zIndex: 9999,
+            fontSize: '14px',
+            lineHeight: '1.5',
+            color: '#1f2937',
+            whiteSpace: 'pre-wrap',
+            wordWrap: 'break-word',
+            pointerEvents: clickedCell ? 'auto' : 'none'
+          }}
+        >
+          {(clickedCell || hoveredCell)!.content}
+        </div>
+      )}
 
       {selectedVenue && (
         <VenueModal

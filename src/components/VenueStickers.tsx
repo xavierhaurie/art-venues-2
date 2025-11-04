@@ -62,8 +62,13 @@ export default function VenueStickers({ venueId, refreshSignal, initialStickers 
       {venueStickers.map((sticker) => (
         <div
           key={sticker.id}
-          className="flex items-center px-2 py-1 rounded text-xs font-medium"
-          style={{ backgroundColor: sticker.color, fontSize: '0.75rem' }}
+          className="flex items-center font-medium"
+          style={{
+            backgroundColor: sticker.color,
+            fontSize: '14px',
+            padding: '5px',
+            borderRadius: '5px'
+          }}
           title={sticker.details || sticker.label}
         >
           <span>{sticker.label}</span>
