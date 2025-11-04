@@ -223,7 +223,8 @@ CREATE TABLE sticker_meaning (
   details        text,
   color          text NOT NULL,
   created_at     timestamptz NOT NULL DEFAULT NOW(),
-  updated_at     timestamptz NOT NULL DEFAULT NOW()
+  updated_at     timestamptz NOT NULL DEFAULT NOW(),
+  UNIQUE (artist_user_id, color)
 );
 CREATE INDEX idx_sticker_meaning_artist ON sticker_meaning(artist_user_id);
 CREATE TRIGGER trg_sticker_meaning_updated BEFORE UPDATE ON sticker_meaning

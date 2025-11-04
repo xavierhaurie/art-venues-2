@@ -12,7 +12,6 @@ export default function VenueModal(props: any) {
   const [localNotes, setLocalNotes] = useState('');
   const [originalNotes, setOriginalNotes] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [galleryIndex, setGalleryIndex] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<any>(null);
@@ -147,10 +146,11 @@ export default function VenueModal(props: any) {
       if (response.ok) {
         const data = await response.json();
         setNote(venue.id, data.note || { body: '', venue_id: venue.id });
+        // Do not close the modal after saving — only update the originalNotes so Save notes becomes disabled
         setOriginalNotes(localNotes);
         setHasUnsavedChanges(false);
         if (onNoteSaved) onNoteSaved(venue.id, data.note?.body || '', data.note?.id);
-        onClose();
+        // removed onClose() per request
       } else {
         alert('Failed to save notes. Please try again.');
       }
@@ -158,14 +158,6 @@ export default function VenueModal(props: any) {
       console.error('Failed to save notes:', err);
       alert('Failed to save notes. Please try again.');
     } finally { setIsSaving(false); }
-  };
-
-  const handleCancel = () => {
-    if (hasUnsavedChanges) {
-      const confirmed = confirm('You have unsaved changes. Are you sure you want to cancel?');
-      if (!confirmed) return;
-    }
-    setLocalNotes(originalNotes); setHasUnsavedChanges(false); onClose();
   };
 
   const handleClose = () => {
@@ -179,19 +171,81 @@ export default function VenueModal(props: any) {
 
   const handleImageUpload = async (files: any) => {
     const validFiles: any[] = [];
-    if (venueImages.length + files.length > 20) { alert(`Maximum 20 images allowed. You can upload ${20 - venueImages.length} more.`); return; }
-    for (const f of Array.from(files)) {
-      const file: any = f;
-      const validationError = validateImageFile(file, 1);
-      if (validationError) { alert(`${file.name}: ${validationError}`); continue; }
-      try { incrementUploading?.(venue.id); const compressed = await compressImage(file, 100, 1200); validFiles.push(compressed); } catch (err) { console.error('Failed to compress image:', err); alert(`Failed to compress ${file.name}`); decrementUploading?.(venue.id); }
+    if (venueImages.length + files.length > 20) {
+      alert(`Maximum 20 images allowed. You can upload ${20 - venueImages.length} more.`);
+      return;
     }
+
+    for (const f of Array.from(files)) {
+      let file: any = f;
+      // If browser didn't set file.type, infer it from extension to avoid validation/upload issues
+      if (!file.type) {
+        const ext = (file.name && file.name.includes('.')) ? file.name.split('.').pop().toLowerCase() : '';
+        const extMap: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml' };
+        const inferred = extMap[ext] || '';
+        if (inferred) {
+          try {
+            file = new File([file], file.name, { type: inferred });
+            console.debug('VenueModal: inferred mime type for file', file.name, inferred);
+          } catch (e) {
+            // If File constructor fails, continue with original file and validation may fail
+            console.warn('VenueModal: failed to create typed File for', file.name, e);
+          }
+        }
+      }
+      // Allow larger inputs (we'll compress), validate up to 5MB
+      const validationError = validateImageFile(file, 5);
+      if (validationError) { alert(`${file.name}: ${validationError}`); continue; }
+
+      console.debug('VenueModal: preparing upload for file', { name: file.name, type: file.type, size: file.size });
+
+      // If SVG, skip compression (canvas-based compression doesn't handle SVG reliably)
+      if (file.type === 'image/svg+xml') {
+        validFiles.push(file);
+        continue;
+      }
+
+      try {
+        const compressed = await compressImage(file, 100, 1200);
+        validFiles.push(compressed);
+      } catch (err) {
+        console.warn('VenueModal: compression failed, falling back to original file for upload', file.name, err);
+        // Fall back to uploading the original file if compression fails
+        validFiles.push(file);
+      }
+    }
+
     for (const file of validFiles) {
       try {
+        // Increment per-file upload counter so UI reflects active uploads accurately
+        incrementUploading?.(venue.id);
         const formData = new FormData(); formData.append('file', file);
+        console.debug('VenueModal: uploading file', { name: file.name, type: file.type, size: file.size });
         const response = await fetch(`/api/venues/${venue.id}/images`, { method: 'POST', body: formData });
-        if (response.ok) { const data = await response.json(); addImage?.(venue.id, data.image); } else { alert(`Failed to upload ${file.name}`); }
-      } catch (err) { console.error('Failed to upload image:', err); alert(`Failed to upload ${file.name}`); } finally { decrementUploading?.(venue.id); }
+        if (response.ok) {
+          const data = await response.json();
+          addImage?.(venue.id, data.image);
+        } else {
+          // Try to parse response body for a helpful error message
+          let msg = `Failed to upload ${file.name}`;
+          try {
+            const errBody = await response.json();
+            msg = errBody.error || errBody.message || msg;
+            console.error('VenueModal: upload error response', response.status, errBody);
+          } catch (parseErr) {
+            const text = await response.text().catch(() => '');
+            console.error('VenueModal: upload error non-json response', response.status, text);
+            if (text) msg = text;
+          }
+          alert(`${file.name}: ${msg}`);
+        }
+      } catch (err) {
+        console.error('Failed to upload image:', err);
+        const emsg = (err as any)?.message || String(err);
+        alert(`Failed to upload ${file.name}: ${emsg}`);
+      } finally {
+        decrementUploading?.(venue.id);
+      }
     }
   };
 
@@ -369,6 +423,42 @@ export default function VenueModal(props: any) {
             <div style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>My Notes {hasUnsavedChanges && <span style={{ color: '#dc2626', fontSize: '0.875rem', marginLeft: '0.5rem' }}>(Unsaved changes)</span>}</h3>
               <textarea value={localNotes} onChange={(e) => handleNotesChange(e.target.value)} disabled={isSaving} style={{ width: '100%', minHeight: 200, padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 16, fontFamily: 'inherit', resize: 'vertical', outline: 'none', backgroundColor: isSaving ? '#f9fafb' : 'white' }} placeholder="Add your notes about this venue..." />
+
+              {/* Reset + Save notes buttons moved here */}
+              <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => { setLocalNotes(originalNotes); setHasUnsavedChanges(false); }}
+                  disabled={isSaving || uploadingCount > 0}
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    backgroundColor: 'white',
+                    color: '#374151',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: (isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={!hasUnsavedChanges || isSaving || uploadingCount > 0}
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    backgroundColor: (!hasUnsavedChanges || isSaving || uploadingCount > 0) ? '#9ca3af' : '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: (!hasUnsavedChanges || isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {isSaving ? 'Saving...' : 'Save notes'}
+                </button>
+              </div>
             </div>
 
             {/* Sticker Management Section */}
@@ -407,122 +497,48 @@ export default function VenueModal(props: any) {
 
             {/* Images Section */}
             <div style={{ marginBottom: '2rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
                 <h3 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0 }}>Images ({venueImages.length}/20)</h3>
-                <div>
-                  <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => e.target.files && handleImageUpload(e.target.files)} style={{ display: 'none' }} />
-                  <button onClick={() => fileInputRef.current?.click()} disabled={venueImages.length >= 20} style={{ padding: '0.5rem 1rem', backgroundColor: venueImages.length >= 20 ? '#9ca3af' : '#3b82f6', color: 'white', border: 'none', borderRadius: 6, fontSize: '0.875rem', cursor: venueImages.length >= 20 ? 'not-allowed' : 'pointer' }}>Upload Images</button>
-                </div>
+                {/* Place Upload input/button immediately to the right of the header */}
+                <input ref={fileInputRef} id={`upload-${venue?.id}`} type="file" accept="image/*" multiple onChange={(e) => e.target.files && handleImageUpload(e.target.files)} style={{ display: 'none' }} />
+                <button onClick={() => fileInputRef.current?.click()} disabled={venueImages.length >= 20} style={{ padding: '0.4rem 0.75rem', backgroundColor: venueImages.length >= 20 ? '#9ca3af' : '#3b82f6', color: 'white', border: 'none', borderRadius: 6, fontSize: '0.875rem', cursor: venueImages.length >= 20 ? 'not-allowed' : 'pointer' }}>Upload Images</button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '1rem' }}>
+              {/* Thumbnails row (horizontal) */}
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', overflowX: 'auto', paddingBottom: '0.5rem' }}>
                 {venueImages.map((image) => (
-                  <div key={image.id} style={{ position: 'relative' }}>
-                    <img src={image.url} alt="" style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 6, cursor: 'pointer' }} onClick={() => setGalleryIndex(image.id)} />
-                    <button onClick={(e) => { e.stopPropagation(); handleDeleteImage(image.id); }} style={{ position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(239,68,68,0.9)', color: 'white', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 14, cursor: 'pointer' }}>×</button>
+                  <div key={image.id} style={{ position: 'relative', flex: '0 0 auto' }}>
+                    <img
+                      src={image.url}
+                      alt=""
+                      style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', display: 'block' }}
+                    />
+                    <button
+                      onClick={() => handleDeleteImage(image.id)}
+                      style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: 18, height: 18, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      title="Delete image"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Full-size images shown below, one per row, centered, max dimension 800px */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', marginTop: '0.75rem' }}>
+                {venueImages.map((image) => (
+                  <div key={image.id} style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                    <img src={image.url} alt="Uploaded" style={{ maxWidth: '800px', maxHeight: '800px', width: '100%', height: 'auto', borderRadius: 8 }} />
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Unsplash Gallery Section */}
-            <div>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1rem' }}>Image Gallery</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => setGalleryIndex(0)}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 6,
-                    fontSize: '0.875rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem'
-                  }}
-                >
-                  <span style={{ fontSize: '0.875rem' }}>View All</span>
-                </button>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', flex: 1 }}>
-                  {venueImages.slice(0, 5).map((image) => (
-                    <div
-                      key={image.id}
-                      style={{
-                        position: 'relative',
-                        cursor: 'pointer',
-                        borderRadius: 6,
-                        overflow: 'hidden',
-                        aspectRatio: '1 / 1',
-                        border: '1px solid rgba(0,0,0,0.1)',
-                      }}
-                      onClick={() => setGalleryIndex(image.id)}
-                    >
-                      <img
-                        src={image.url}
-                        alt=""
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          display: 'block',
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Save/Cancel Buttons */}
-            <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
-              <button
-                onClick={handleCancel}
-                disabled={isSaving || uploadingCount > 0}
-                style={{
-                  padding: '0.5rem 1.5rem',
-                  backgroundColor: 'white',
-                  color: '#374151',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 6,
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                  cursor: (isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
-                  opacity: (isSaving || uploadingCount > 0) ? 0.5 : 1,
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={!hasUnsavedChanges || isSaving || uploadingCount > 0}
-                style={{
-                  padding: '0.5rem 1.5rem',
-                  backgroundColor: (!hasUnsavedChanges || isSaving || uploadingCount > 0) ? '#9ca3af' : '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                  cursor: (!hasUnsavedChanges || isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {isSaving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
+            {/* Footer: no cancel button per request (actions are in-note area) */}
+            <div style={{ marginTop: '2rem' }} />
           </div>
         </div>
       </div>
-
-      {/* Image Gallery Modal */}
-      {galleryIndex !== null && (
-        <div style={{ position: 'fixed', top:0, left:0, right:0, bottom:0, backgroundColor: 'rgba(0,0,0,0.9)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={() => setGalleryIndex(null)}>
-          <img src={venueImages.find(img=>img.id===galleryIndex)?.url} alt="Gallery" style={{ maxWidth:'90%', maxHeight:'90%', objectFit:'contain' }} />
-          <button onClick={() => setGalleryIndex(null)} style={{ position:'absolute', top: '1rem', right:'1rem', background:'white', border:'none', color:'#000', fontSize:'2rem', fontWeight:'bold', cursor:'pointer', width:48, height:48, borderRadius:24 }}>×</button>
-        </div>
-      )}
 
       {/* Create Sticker Dialog */}
       {showCreateStickerDialog && (

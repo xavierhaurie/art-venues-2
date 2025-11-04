@@ -42,6 +42,9 @@ INSERT INTO artist_profile (
 )
 ON CONFLICT (user_id) DO NOTHING;
 
--- Success message
+-- Create default stickers for the dev user
+SELECT create_default_stickers_for_user('3fa85f64-5717-4562-b3fc-2c963f66afa6');
+--
+-- -- Success message
 SELECT 'Development user created successfully!' as message;
 

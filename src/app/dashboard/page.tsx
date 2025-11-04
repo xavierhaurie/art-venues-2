@@ -3,13 +3,25 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+interface StickerMeaning {
+  id: string;
+  color: string;
+  label: string;
+  details: string | null;
+  created_at: string;
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [stickerMeanings, setStickerMeanings] = useState<StickerMeaning[]>([]);
+  const [loadingStickers, setLoadingStickers] = useState(true);
+  const [initializingStickers, setInitializingStickers] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     checkAuth();
+    fetchStickerMeanings();
   }, []);
 
   const checkAuth = async () => {
@@ -30,6 +42,47 @@ export default function DashboardPage() {
       router.push('/auth');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStickerMeanings = async () => {
+    try {
+      const response = await fetch('/api/stickers/meanings', {
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setStickerMeanings(data.meanings || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch sticker meanings:', error);
+    } finally {
+      setLoadingStickers(false);
+    }
+  };
+
+  const handleInitializeStickers = async () => {
+    setInitializingStickers(true);
+    try {
+      const response = await fetch('/api/stickers/initialize', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setStickerMeanings(data.meanings || []);
+        alert('Default stickers created successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Failed to create stickers: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to initialize stickers:', error);
+      alert('Failed to create default stickers. Please try again.');
+    } finally {
+      setInitializingStickers(false);
     }
   };
 
@@ -101,6 +154,14 @@ export default function DashboardPage() {
               <div className="border-t border-gray-200 pt-4">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Account Information</h3>
                 <dl className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <dt className="text-sm font-medium text-gray-500">User UUID</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      <code className="px-2 py-1 bg-gray-100 rounded text-sm font-mono">
+                        {user?.id}
+                      </code>
+                    </dd>
+                  </div>
                   <div className="sm:col-span-1">
                     <dt className="text-sm font-medium text-gray-500">Email</dt>
                     <dd className="mt-1 text-sm text-gray-900">{user?.email}</dd>
@@ -140,6 +201,82 @@ export default function DashboardPage() {
                   <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
                     Generate New Backup Codes
                   </button>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Data</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Your sticker meanings and custom venue data.
+                </p>
+
+                <div className="mb-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-2">Sticker Meanings ({stickerMeanings.length})</h4>
+                  {loadingStickers ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                    </div>
+                  ) : stickerMeanings.length === 0 ? (
+                    <div className="text-sm text-gray-500 py-4 text-center bg-gray-50 rounded border border-gray-200">
+                      <p className="mb-3">No sticker meanings found.</p>
+                      <button
+                        onClick={handleInitializeStickers}
+                        disabled={initializingStickers}
+                        className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {initializingStickers ? 'Creating...' : 'Create Default Stickers'}
+                      </button>
+                      <p className="mt-3 text-xs text-gray-400">
+                        This will create 5 default sticker meanings: Interested, Contacted, Submitted Work, Has My Artwork, and Sold.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-lg">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Color
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Label
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Details
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Created
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {stickerMeanings.map((meaning) => (
+                            <tr key={meaning.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-6 h-6 rounded border border-gray-300"
+                                    style={{ backgroundColor: meaning.color }}
+                                    title={meaning.color}
+                                  />
+                                  <code className="text-xs text-gray-500">{meaning.color}</code>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {meaning.label}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {meaning.details || <span className="text-gray-400 italic">No details</span>}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                {new Date(meaning.created_at).toLocaleDateString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

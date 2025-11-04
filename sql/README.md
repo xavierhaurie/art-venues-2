@@ -13,7 +13,10 @@ Run these files **in order** in the Supabase SQL Editor:
 4. **3.policies-reset.sql** - Drops existing RLS policies and enables RLS
 5. **4.policies.sql** - Creates RLS policies for data security
 6. **5.policies.test.sql** - (Optional) Validates that policies are configured correctly
-7. **6.seed.sql** - (Optional) Adds sample data for testing
+7. **6.seed.sql** - (Optional) Adds sample data and creates `create_default_stickers_for_user` function
+8. **7.dev-user.sql** - (Optional) Creates a development test user with default stickers
+9. **9.add-sticker-meaning-unique-constraint.sql** - Adds unique constraint for sticker meanings (run if upgrading existing DB)
+10. **8.create-default-stickers-for-existing-users.sql** - (Optional) Backfills default stickers for all existing users
 
 ## Quick Setup
 
@@ -25,7 +28,18 @@ Run these files **in order** in the Supabase SQL Editor:
 -- 3. 2.auth-schema.sql
 -- 4. 3.policies-reset.sql
 -- 5. 4.policies.sql
--- 6. 6.seed.sql (optional)
+-- 6. 6.seed.sql
+-- 7. 7.dev-user.sql (creates test user with stickers)
+```
+
+### Upgrading Existing Database
+If you already have a database with users but need to add the sticker constraint:
+```sql
+-- 1. Add the unique constraint
+-- Run: 9.add-sticker-meaning-unique-constraint.sql
+
+-- 2. Create default stickers for existing users
+-- Run: 8.create-default-stickers-for-existing-users.sql
 ```
 
 ### Reset & Rebuild

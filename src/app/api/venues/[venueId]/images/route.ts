@@ -93,24 +93,43 @@ export async function POST(
     const nextOrder = maxOrderData && maxOrderData.length > 0 ? maxOrderData[0].display_order + 1 : 1;
 
     // Upload file to Supabase Storage
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${session.userId}/${params.venueId}/${Date.now()}.${fileExt}`;
+    const BUCKET = process.env.STORAGE_BUCKET_VENUE_IMAGES || 'artwork';
+    console.debug(`VenueImages POST: using storage bucket='${BUCKET}' for upload`);
+    // Derive a safe file extension; fall back from mime type when necessary
+    let fileExt = (file.name && file.name.includes('.')) ? file.name.split('.').pop() : '';
+    if (!fileExt) {
+      const mimeToExt: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+        'image/svg+xml': 'svg'
+      };
+      fileExt = mimeToExt[file.type] || 'bin';
+    }
+
+    // Build a sanitized file name to avoid spaces and unsafe chars
+    const safeTimestamp = Date.now();
+    const sanitizedUserId = String(session.userId).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const sanitizedVenueId = String(params.venueId).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `${sanitizedUserId}/${sanitizedVenueId}/${safeTimestamp}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
-      .from('venue-images')
+      .from(BUCKET)
       .upload(fileName, file, {
         contentType: file.type,
         upsert: false
       });
 
     if (uploadError) {
-      console.error('Error uploading file:', uploadError);
-      return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
+      console.error(`Error uploading file to bucket='${BUCKET}':`, uploadError);
+      // Return the error message from Supabase when possible to help debugging
+      const msg = uploadError?.message || JSON.stringify(uploadError);
+      return NextResponse.json({ error: `Failed to upload file to bucket='${BUCKET}': ${msg}` }, { status: 500 });
     }
 
     // Get public URL
     const { data: { publicUrl } } = supabase.storage
-      .from('venue-images')
+      .from(BUCKET)
       .getPublicUrl(fileName);
 
     // Save image record to database
@@ -132,13 +151,15 @@ export async function POST(
     if (dbError) {
       console.error('Error saving image record:', dbError);
       // Clean up uploaded file
-      await supabase.storage.from('venue-images').remove([fileName]);
-      return NextResponse.json({ error: 'Failed to save image record' }, { status: 500 });
+      await supabase.storage.from(BUCKET).remove([fileName]);
+      const msg = dbError?.message || JSON.stringify(dbError);
+      return NextResponse.json({ error: `Failed to save image record (bucket='${BUCKET}'): ${msg}` }, { status: 500 });
     }
 
     return NextResponse.json({ image: imageData });
   } catch (error) {
     console.error('Error in venue images POST:', error);
-    return NextResponse.json({ error: 'Failed to upload image' }, { status: 500 });
+    const msg = (error as any)?.message || JSON.stringify(error);
+    return NextResponse.json({ error: `Failed to upload image: ${msg}` }, { status: 500 });
   }
 }
