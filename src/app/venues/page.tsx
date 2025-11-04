@@ -56,7 +56,7 @@ export default function VenuesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     locality: '',
@@ -72,14 +72,24 @@ export default function VenuesPage() {
   const [savingNotes, setSavingNotes] = useState<{[venueId: string]: boolean}>({});
   const noteTimeouts = useRef<{[venueId: string]: NodeJS.Timeout}>({});
 
+  // Infinite scroll
+  const observerTarget = useRef<HTMLDivElement>(null);
+  const loadingMore = useRef(false);
+
+  // Full venue data for modal (includes contact info)
+  const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
+  const [loadingVenue, setLoadingVenue] = useState(false);
+
   const { selectedVenueId, openModal, closeModal } = useVenueStore();
 
-  const fetchVenues = async (page = 1, search = '', filterParams = filters) => {
+  const fetchVenues = async (page = 1, search = '', filterParams = filters, append = false) => {
     try {
-      setLoading(true);
+      if (!append) {
+        setLoading(true);
+      }
       const params = new URLSearchParams({
         page: page.toString(),
-        page_size: '50',
+        page_size: '10', // Chunk size for infinite scroll
         ...(search && { q: search }),
         ...(filterParams.locality && { locality: filterParams.locality }),
         ...(filterParams.type && { type: filterParams.type }),
@@ -92,9 +102,15 @@ export default function VenuesPage() {
       }
 
       const data: VenuesResponse = await response.json();
-      setVenues(data.venues);
+
+      if (append) {
+        setVenues(prev => [...prev, ...data.venues]);
+      } else {
+        setVenues(data.venues);
+      }
+
       setCurrentPage(data.page);
-      setTotalPages(data.total_pages);
+      setHasMore(data.has_next);
       setError(null);
 
       // Load user notes from the venue data (already included via JOIN)
@@ -105,12 +121,18 @@ export default function VenuesPage() {
           noteId: venue.user_note?.id
         };
       });
-      setUserVenueData(newUserVenueData);
+
+      if (append) {
+        setUserVenueData(prev => ({ ...prev, ...newUserVenueData }));
+      } else {
+        setUserVenueData(newUserVenueData);
+      }
     } catch (err) {
       setError('Failed to load venues');
       console.error('Error fetching venues:', err);
     } finally {
       setLoading(false);
+      loadingMore.current = false;
     }
   };
 
@@ -118,19 +140,74 @@ export default function VenuesPage() {
     fetchVenues();
   }, []);
 
+  // Fetch full venue data when modal opens
+  useEffect(() => {
+    if (selectedVenueId) {
+      const fetchFullVenue = async () => {
+        setLoadingVenue(true);
+        try {
+          const response = await fetch(`/api/venues/${selectedVenueId}`);
+          if (response.ok) {
+            const data = await response.json();
+            setSelectedVenue(data);
+          } else {
+            console.error('Failed to fetch full venue data');
+            // Fallback to list data
+            const venueFromList = venues.find(v => v.id === selectedVenueId);
+            setSelectedVenue(venueFromList || null);
+          }
+        } catch (error) {
+          console.error('Error fetching venue:', error);
+          // Fallback to list data
+          const venueFromList = venues.find(v => v.id === selectedVenueId);
+          setSelectedVenue(venueFromList || null);
+        } finally {
+          setLoadingVenue(false);
+        }
+      };
+      fetchFullVenue();
+    } else {
+      setSelectedVenue(null);
+    }
+  }, [selectedVenueId, venues]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore.current) {
+          loadingMore.current = true;
+          fetchVenues(currentPage + 1, searchQuery, filters, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, loading, currentPage, searchQuery, filters]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchVenues(1, searchQuery, filters);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, searchQuery, filters, false);
   };
 
   const handleFilterChange = (key: string, value: string) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
-    fetchVenues(1, searchQuery, newFilters);
-  };
-
-  const handlePageChange = (newPage: number) => {
-    fetchVenues(newPage, searchQuery, filters);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, searchQuery, newFilters, false);
   };
 
   const handleVenueClick = (venueId: string) => {
@@ -249,8 +326,6 @@ export default function VenuesPage() {
     );
   }
 
-  const selectedVenue = selectedVenueId ? venues.find(v => v.id === selectedVenueId) : null;
-
   return (
     <div className="container mx-auto px-4 py-8 font-sans">
       <div className="mb-8">
@@ -355,13 +430,12 @@ export default function VenuesPage() {
                   <td className="p-0 border-r border-gray-200" style={{ minWidth: '100px', maxWidth: '300px' }}>
                     {renderNotesCell(venue.id)}
                   </td>
-                  <td className="p-2 border-r border-gray-200">
-                    <button
-                      onClick={() => handleVenueClick(venue.id)}
-                      className="text-blue-600 hover:text-blue-800 hover:underline text-left cursor-pointer"
-                    >
-                      {venue.name}
-                    </button>
+                  <td
+                    className="p-2 border-r border-gray-200 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                    onClick={() => handleVenueClick(venue.id)}
+                    style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}
+                  >
+                    {venue.name}
                   </td>
                   <td className="p-2 border-r border-gray-200">{venue.type}</td>
                   <td className="p-2 border-r border-gray-200">{venue.locality}</td>
@@ -378,29 +452,15 @@ export default function VenuesPage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="mt-6 flex justify-center gap-2">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-            >
-              Previous
-            </button>
-
-            <span className="px-3 py-1">
-              Page {currentPage} of {totalPages}
-            </span>
-
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-            >
-              Next
-            </button>
-          </div>
-        )}
+        {/* Infinite scroll sentinel */}
+        <div ref={observerTarget} className="h-10 flex items-center justify-center mt-4">
+          {loadingMore.current && hasMore && (
+            <div className="text-gray-500 text-sm">Loading more venues...</div>
+          )}
+          {!hasMore && venues.length > 0 && (
+            <div className="text-gray-400 text-sm">No more venues to load</div>
+          )}
+        </div>
       </div>
 
       {selectedVenue && (

@@ -27,10 +27,10 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
 
   // Build the select with LEFT JOIN to notes and sticker assignments
   const selectClause = userId
-    ? `id, name, type, locality, region_code, address, public_transit, website_url, map_link, artist_summary, visitor_summary, facebook, instagram, created_at, 
+    ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
        note(id, body, artist_user_id),
        sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color))`
-    : '*';
+    : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at';
 
   let query = supabase
     .from('venue')
@@ -143,10 +143,10 @@ export async function searchVenues(
 
   // Build the select with LEFT JOIN to notes and sticker assignments
   const selectClause = userId
-    ? `id, name, type, locality, region_code, address, public_transit, website_url, map_link, artist_summary, visitor_summary, facebook, instagram, created_at, 
+    ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
        note(id, body, artist_user_id),
        sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color))`
-    : '*';
+    : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at';
 
   let searchQuery = supabase
     .from('venue')
