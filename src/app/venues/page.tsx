@@ -597,12 +597,12 @@ export default function VenuesPage() {
 
         {/* Sticker Filters Section */}
         <div className="mb-6 p-4 bg-white border border-gray-300 rounded-lg">
-          <h3 className="text-lg font-semibold mb-3">Click filters to filter by:</h3>
+          <h3 className="text-lg font-semibold mb-3">Select stickers to filter by:</h3>
 
           {/* Available filters (top row) */}
           <div className="mb-3">
-            <div className="text-sm font-medium text-gray-600 mb-2">Available Filters:</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <div className="text-sm font-medium text-gray-600 mb-2">Available stickers:</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
               {stickerMeanings.filter(meaning => !selectedStickerFilters.includes(meaning.id)).map((meaning) => (
                 <div
                   key={meaning.id}
@@ -626,15 +626,15 @@ export default function VenuesPage() {
                 </div>
               ))}
               {stickerMeanings.filter(meaning => !selectedStickerFilters.includes(meaning.id)).length === 0 && (
-                <div className="text-gray-500 text-sm italic">All filters selected</div>
+                <div className="text-gray-500 text-sm italic">All stickers selected</div>
               )}
             </div>
           </div>
 
           {/* Selected filters (bottom row) */}
           <div>
-            <div className="text-sm font-medium text-gray-600 mb-2">Selected Filters:</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <div className="text-sm font-medium text-gray-600 mb-2">Selected stickers:</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
               {stickerMeanings.filter(meaning => selectedStickerFilters.includes(meaning.id)).map((meaning) => (
                 <div
                   key={meaning.id}
@@ -656,7 +656,7 @@ export default function VenuesPage() {
                 </div>
               ))}
               {selectedStickerFilters.length === 0 && (
-                <div className="text-gray-500 text-sm italic">No filters selected (showing all venues)</div>
+                <div className="text-gray-500 text-sm italic">No stickers selected (showing all venues)</div>
               )}
             </div>
           </div>
