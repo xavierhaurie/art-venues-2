@@ -334,13 +334,8 @@ export default function VenuesPage() {
                 <th className="p-2 text-left font-semibold border-r border-gray-300">Name</th>
                 <th className="p-2 text-left font-semibold border-r border-gray-300">Type</th>
                 <th className="p-2 text-left font-semibold border-r border-gray-300">Locality</th>
-                <th className="p-2 text-left font-semibold border-r border-gray-300">Website</th>
                 <th className="p-2 text-left font-semibold border-r border-gray-300">Artist Summary</th>
                 <th className="p-2 text-left font-semibold border-r border-gray-300">Visitor Summary</th>
-                <th className="p-2 text-left font-semibold border-r border-gray-300">Instagram</th>
-                <th className="p-2 text-left font-semibold border-r border-gray-300">Facebook</th>
-                <th className="p-2 text-left font-semibold border-r border-gray-300">Address</th>
-                <th className="p-2 text-left font-semibold border-r border-gray-300">Map Link</th>
                 <th className="p-2 text-left font-semibold">Public Transit</th>
               </tr>
             </thead>
@@ -370,60 +365,11 @@ export default function VenuesPage() {
                   </td>
                   <td className="p-2 border-r border-gray-200">{venue.type}</td>
                   <td className="p-2 border-r border-gray-200">{venue.locality}</td>
-                  <td className="p-2 border-r border-gray-200">
-                    {venue.website_url && (
-                      <a
-                        href={venue.website_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        Link
-                      </a>
-                    )}
-                  </td>
                   <td className="p-2 border-r border-gray-200" style={{ maxWidth: '250px' }}>
                     <div className="truncate">{venue.artist_summary}</div>
                   </td>
                   <td className="p-2 border-r border-gray-200" style={{ maxWidth: '250px' }}>
                     <div className="truncate">{venue.visitor_summary}</div>
-                  </td>
-                  <td className="p-2 border-r border-gray-200">
-                    {venue.instagram && !venue.instagram.includes('facebook.com') && (
-                      <a
-                        href={venue.instagram.startsWith('http') ? venue.instagram : `https://www.instagram.com/${venue.instagram}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        Link
-                      </a>
-                    )}
-                  </td>
-                  <td className="p-2 border-r border-gray-200">
-                    {venue.facebook && (
-                      <a
-                        href={venue.facebook}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        Link
-                      </a>
-                    )}
-                  </td>
-                  <td className="p-2 border-r border-gray-200">{venue.address}</td>
-                  <td className="p-2 border-r border-gray-200">
-                    {venue.map_link && (
-                      <a
-                        href={venue.map_link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        Link
-                      </a>
-                    )}
                   </td>
                   <td className="p-2">{venue.public_transit}</td>
                 </tr>
