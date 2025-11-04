@@ -109,3 +109,10 @@ $$ LANGUAGE plpgsql;
 -- WHERE region_code = 'BOS'
 -- ORDER BY RANDOM()
 -- LIMIT 10;
+
+
+--
+--
+-- this is where we import the venues CSV file
+--
+--

@@ -152,6 +152,81 @@ CREATE POLICY bookmark_insert_own ON bookmark FOR INSERT
 CREATE POLICY bookmark_delete_own ON bookmark FOR DELETE
   USING (user_id = auth.uid() OR public.user_role() = 'admin');
 
+-- ==================== STORAGE POLICIES FOR ARTWORK BUCKET ====================
+-- Note: Storage policies use the storage.objects table
+
+-- Policy: Users can only read their own artwork images (private bucket)
+-- File path structure: {user_id}/{venue_id}/{timestamp}.ext
+CREATE POLICY "Users can view their own artwork images"
+ON storage.objects FOR SELECT
+USING (
+  bucket_id = 'artwork'
+  AND auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- Policy: Authenticated users can upload artwork images
+CREATE POLICY "Authenticated users can upload artwork"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'artwork'
+  AND auth.role() = 'authenticated'
+);
+
+-- Policy: Users can update their own artwork images
+CREATE POLICY "Users can update their own artwork"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'artwork'
+  AND auth.uid()::text = (storage.foldername(name))[1]
+)
+WITH CHECK (
+  bucket_id = 'artwork'
+  AND auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- Policy: Users can delete their own artwork images
+CREATE POLICY "Users can delete their own artwork"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'artwork'
+  AND auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- ==================== STORAGE POLICIES FOR ARTIST-MEDIA BUCKET ====================
+
+-- Policy: Anyone can read artist media (public bucket)
+CREATE POLICY "Public Access for Artist Media"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'artist-media');
+
+-- Policy: Authenticated users can upload artist media
+CREATE POLICY "Authenticated users can upload artist media"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'artist-media'
+  AND auth.role() = 'authenticated'
+);
+
+-- Policy: Users can update their own artist media
+CREATE POLICY "Users can update their own artist media"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'artist-media'
+  AND auth.uid()::text = (storage.foldername(name))[1]
+)
+WITH CHECK (
+  bucket_id = 'artist-media'
+  AND auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- Policy: Users can delete their own artist media
+CREATE POLICY "Users can delete their own artist media"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'artist-media'
+  AND auth.uid()::text = (storage.foldername(name))[1]
+);
+
 -- ==================== VALIDATION ====================
 DO $$
 DECLARE

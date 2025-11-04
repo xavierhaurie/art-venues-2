@@ -24,6 +24,8 @@ export async function GET(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
+    const BUCKET = process.env.STORAGE_BUCKET_VENUE_IMAGES || 'artwork';
+
     const { data, error } = await supabase
       .from('venue_image')
       .select('*')
@@ -36,7 +38,26 @@ export async function GET(
       return NextResponse.json({ error: 'Failed to fetch images' }, { status: 500 });
     }
 
-    return NextResponse.json({ images: data || [] });
+    // Generate signed URLs for private bucket (valid for 1 hour)
+    const imagesWithSignedUrls = await Promise.all(
+      (data || []).map(async (image) => {
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+          .from(BUCKET)
+          .createSignedUrl(image.file_path, 3600); // 1 hour expiry
+
+        if (signedUrlError) {
+          console.error('Error creating signed URL:', signedUrlError);
+          return image; // Return original image with stored URL as fallback
+        }
+
+        return {
+          ...image,
+          url: signedUrlData.signedUrl
+        };
+      })
+    );
+
+    return NextResponse.json({ images: imagesWithSignedUrls });
   } catch (error) {
     console.error('Error in venue images GET:', error);
     return NextResponse.json({ error: 'Failed to fetch images' }, { status: 500 });
@@ -127,10 +148,8 @@ export async function POST(
       return NextResponse.json({ error: `Failed to upload file to bucket='${BUCKET}': ${msg}` }, { status: 500 });
     }
 
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from(BUCKET)
-      .getPublicUrl(fileName);
+    // For private buckets, we'll generate signed URLs on demand
+    // Store the file_path and we'll create signed URLs when fetching
 
     // Save image record to database
     const { data: imageData, error: dbError } = await supabase
@@ -139,7 +158,7 @@ export async function POST(
         venue_id: params.venueId,
         artist_user_id: session.userId,
         file_path: fileName,
-        url: publicUrl,
+        url: fileName, // Store file_path in url field for now (will be replaced with signed URL on GET)
         title: title || null,
         display_order: nextOrder,
         file_size: file.size,
@@ -154,6 +173,17 @@ export async function POST(
       await supabase.storage.from(BUCKET).remove([fileName]);
       const msg = dbError?.message || JSON.stringify(dbError);
       return NextResponse.json({ error: `Failed to save image record (bucket='${BUCKET}'): ${msg}` }, { status: 500 });
+    }
+
+    // Generate a signed URL to return to the client
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrl(fileName, 3600); // 1 hour expiry
+
+    if (signedUrlError) {
+      console.error('Error creating signed URL:', signedUrlError);
+    } else {
+      imageData.url = signedUrlData.signedUrl;
     }
 
     return NextResponse.json({ image: imageData });

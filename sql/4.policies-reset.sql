@@ -41,6 +41,17 @@ DROP POLICY IF EXISTS bookmark_select_own ON bookmark;
 DROP POLICY IF EXISTS bookmark_insert_own ON bookmark;
 DROP POLICY IF EXISTS bookmark_delete_own ON bookmark;
 DROP POLICY IF EXISTS bookmark_admin_all ON bookmark;
+
+-- Drop storage policies (for artwork and artist-media buckets)
+DROP POLICY IF EXISTS "Users can view their own artwork images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload artwork" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update their own artwork" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own artwork" ON storage.objects;
+DROP POLICY IF EXISTS "Public Access for Artist Media" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload artist media" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update their own artist media" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own artist media" ON storage.objects;
+
 -- ==================== ENABLE RLS ====================
 ALTER TABLE artist_profile ENABLE ROW LEVEL SECURITY;
 ALTER TABLE artist_media ENABLE ROW LEVEL SECURITY;

@@ -65,7 +65,7 @@ BEGIN
   RAISE NOTICE 'You can now run:';
   RAISE NOTICE '  1. 1.schema.sql';
   RAISE NOTICE '  2. 2.auth-schema.sql';
-  RAISE NOTICE '  3. 3.policies-reset.sql';
-  RAISE NOTICE '  4. 4.policies.sql';
+  RAISE NOTICE '  3. 4.policies-reset.sql';
+  RAISE NOTICE '  4. 5.policies.sql';
   RAISE NOTICE '  5. 6.seed.sql (optional)';
 END $$;
