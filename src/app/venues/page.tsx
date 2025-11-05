@@ -6,6 +6,7 @@ import VenueModal from '@/components/VenueModal';
 import VenueStickers from '@/components/VenueStickers';
 import LocalityPickerModal from '@/components/LocalityPickerModal';
 import VenueTypePickerModal from '@/components/VenueTypePickerModal';
+import StickerPickerModal from '@/components/StickerPickerModal';
 import { useVenueStore } from '@/lib/store/venueStore';
 
 interface Venue {
@@ -68,15 +69,17 @@ export default function VenuesPage() {
 
   // Locality picker state
   const [localities, setLocalities] = useState<Array<{id: string, name: string}>>([]);
-  const [selectedLocalities, setSelectedLocalities] = useState<string[]>([]);
-  const [showLocalityPicker, setShowLocalityPicker] = useState(false);
 
   // Venue type picker state
   const [venueTypes, setVenueTypes] = useState<Array<{id: string, name: string}>>([]);
   const [selectedVenueTypes, setSelectedVenueTypes] = useState<string[]>([]);
   const [showVenueTypePicker, setShowVenueTypePicker] = useState(false);
 
+  const [selectedLocalities, setSelectedLocalities] = useState<string[]>([]);
+  const [showLocalityPicker, setShowLocalityPicker] = useState(false);
+
   // Sticker filter state
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [stickerMeanings, setStickerMeanings] = useState<Array<{id: string, color: string, label: string, details: string | null}>>([]);
   const [selectedStickerFilters, setSelectedStickerFilters] = useState<string[]>([]); // Array of sticker_meaning_id
 
@@ -95,15 +98,16 @@ export default function VenuesPage() {
 
   // Venue images state
   const [venueImages, setVenueImages] = useState<Record<string, Array<{id: string, url: string}>>>({});
+  const [imagesLoading, setImagesLoading] = useState<Record<string, boolean>>({});
+  const [imagesUploading, setImagesUploading] = useState<Record<string, number>>({});
 
-  // Infinite scroll
-  const observerTarget = useRef<HTMLDivElement>(null);
   const loadingMore = useRef(false);
 
   // Scrollbar sync refs
   const topScrollRef = useRef<HTMLDivElement>(null);
   const mainScrollRef = useRef<HTMLDivElement>(null);
   const bottomScrollRef = useRef<HTMLDivElement>(null);
+  const observerTarget = useRef<HTMLDivElement>(null);
 
   // Full venue data for modal (includes contact info)
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
@@ -224,7 +228,7 @@ export default function VenuesPage() {
   // Handle clicking outside tooltip to close it
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (clickedCell && tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
+      if (tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
         setClickedCell(null);
       }
     };
@@ -385,6 +389,13 @@ export default function VenuesPage() {
     fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, [], false);
   };
 
+  const handleClearStickerFilters = () => {
+    setSelectedStickerFilters([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, searchQuery, filters, [], selectedLocalities, selectedVenueTypes, false);
+  };
+
   const handleVenueClick = (venueId: string) => {
     openModal(venueId);
     router.push(`/venues?id=${venueId}`, { scroll: false });
@@ -428,17 +439,9 @@ export default function VenuesPage() {
         notes
       }
     }));
-
-    if (noteTimeouts.current[venueId]) {
-      clearTimeout(noteTimeouts.current[venueId]);
-    }
-
-    noteTimeouts.current[venueId] = setTimeout(() => {
-      saveNotes(venueId, notes);
-    }, 500);
   };
 
-  const handleCellHover = (event: React.MouseEvent<HTMLElement>, content: React.ReactNode) => {
+  const handleCellHover = (event: React.MouseEvent, content: React.ReactNode) => {
     const rect = event.currentTarget.getBoundingClientRect();
     setHoveredCell({
       content,
@@ -470,44 +473,7 @@ export default function VenuesPage() {
         }));
       }
     } catch (err) {
-      console.error('Failed to load images for venue:', venueId, err);
-    }
-  };
-
-  const saveNotes = async (venueId: string, noteBody: string) => {
-    setSavingNotes(prev => ({ ...prev, [venueId]: true }));
-    try {
-      const response = await fetch(`/api/venues/${venueId}/notes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: noteBody }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUserVenueData(prev => ({
-          ...prev,
-          [venueId]: {
-            notes: data.note?.body || '',
-            noteId: data.note?.id
-          }
-        }));
-
-        // Refocus the textarea after saving if it's still being edited
-        setTimeout(() => {
-          if (editingNote === venueId) {
-            const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
-            if (textarea) {
-              textarea.focus();
-              textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-            }
-          }
-        }, 50);
-      }
-    } catch (error) {
-      console.error('Failed to save note:', error);
-    } finally {
-      setSavingNotes(prev => ({ ...prev, [venueId]: false }));
+      console.error('Failed to load venue images:', err);
     }
   };
 
@@ -590,11 +556,7 @@ export default function VenuesPage() {
   };
 
   if (loading && venues.length === 0) {
-    return (
-      <div className="container mx-auto px-4 py-8 font-sans">
-        <div className="text-center">Loading venues...</div>
-      </div>
-    );
+    return <div className="flex justify-center items-center h-64">Loading venues...</div>;
   }
 
   return (
@@ -609,17 +571,14 @@ export default function VenuesPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search venues..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
             />
-            <button
-              type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
+            <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
               Search
             </button>
           </form>
 
-          <div className="flex flex-wrap gap-4">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setShowLocalityPicker(true)}
               className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
@@ -662,73 +621,22 @@ export default function VenuesPage() {
               <option value="partial">Partial</option>
               <option value="no">No</option>
             </select>
-          </div>
-        </div>
 
-        {/* Sticker Filters Section */}
-        <div className="mb-6 p-4 bg-white border border-gray-300 rounded-lg">
-          <h3 className="text-lg font-semibold mb-3">Select stickers to filter by:</h3>
-
-          {/* Available filters (top row) */}
-          <div className="mb-3">
-            <div className="text-sm font-medium text-gray-600 mb-2">Available stickers:</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-              {stickerMeanings.filter(meaning => !selectedStickerFilters.includes(meaning.id)).map((meaning) => (
-                <div
-                  key={meaning.id}
-                  onClick={() => handleStickerFilterToggle(meaning.id)}
-                  style={{
-                    backgroundColor: meaning.color,
-                    fontSize: '14px',
-                    padding: '5px',
-                    borderRadius: '5px',
-                    margin: '4px',
-                    cursor: 'pointer',
-                    fontWeight: 500,
-                    border: '2px solid transparent',
-                    transition: 'border-color 0.2s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
-                  onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
-                  title={meaning.details || meaning.label}
-                >
-                  {meaning.label}
-                </div>
-              ))}
-              {stickerMeanings.filter(meaning => !selectedStickerFilters.includes(meaning.id)).length === 0 && (
-                <div className="text-gray-500 text-sm italic">All stickers selected</div>
-              )}
-            </div>
-          </div>
-
-          {/* Selected filters (bottom row) */}
-          <div>
-            <div className="text-sm font-medium text-gray-600 mb-2">Selected stickers:</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-              {stickerMeanings.filter(meaning => selectedStickerFilters.includes(meaning.id)).map((meaning) => (
-                <div
-                  key={meaning.id}
-                  onClick={() => handleStickerFilterToggle(meaning.id)}
-                  style={{
-                    backgroundColor: meaning.color,
-                    fontSize: '14px',
-                    padding: '5px',
-                    borderRadius: '5px',
-                    margin: '4px',
-                    cursor: 'pointer',
-                    fontWeight: 500,
-                    border: '2px solid #3b82f6',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                  }}
-                  title={meaning.details || meaning.label}
-                >
-                  {meaning.label}
-                </div>
-              ))}
-              {selectedStickerFilters.length === 0 && (
-                <div className="text-gray-500 text-sm italic">No stickers selected (showing all venues)</div>
-              )}
-            </div>
+            <button
+              onClick={() => setShowStickerPicker(true)}
+              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
+            >
+              <span>
+                {selectedStickerFilters.length === 0
+                  ? 'All Stickers'
+                  : selectedStickerFilters.length === 1
+                  ? '1 Sticker Selected'
+                  : `${selectedStickerFilters.length} Stickers Selected`}
+              </span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -782,8 +690,7 @@ export default function VenuesPage() {
                         initialStickers={venue.user_stickers}
                       />
                       {renderNotesCell(venue.id)}
-                      {/* Artwork thumbnails - 50px max in table cell */}
-                      {venueImages[venue.id] && venueImages[venue.id].length > 0 && (
+                      {(venueImages[venue.id] && venueImages[venue.id].length > 0) && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
                           {venueImages[venue.id].map((image) => (
                             <img
@@ -889,20 +796,6 @@ export default function VenuesPage() {
         </div>
       )}
 
-      {selectedVenue && (
-        <VenueModal
-          venue={selectedVenue}
-          onClose={handleCloseModal}
-          onNoteSaved={handleNoteSaved}
-          onStickerUpdate={(venueId: string) => {
-            try {
-              console.debug('VenuesPage: received onStickerUpdate for', venueId);
-            } catch (e) {}
-            setStickerRefreshSignals(prev => ({ ...prev, [venueId]: (prev[venueId] || 0) + 1 }));
-          }}
-        />
-      )}
-
       {showLocalityPicker && (
         <LocalityPickerModal
           localities={localities}
@@ -920,6 +813,16 @@ export default function VenuesPage() {
           onToggleVenueType={handleVenueTypeToggle}
           onClear={handleClearVenueTypes}
           onClose={() => setShowVenueTypePicker(false)}
+        />
+      )}
+
+      {showStickerPicker && (
+        <StickerPickerModal
+          stickerMeanings={stickerMeanings}
+          selectedStickerFilters={selectedStickerFilters}
+          onToggleSticker={handleStickerFilterToggle}
+          onClear={handleClearStickerFilters}
+          onClose={() => setShowStickerPicker(false)}
         />
       )}
     </div>

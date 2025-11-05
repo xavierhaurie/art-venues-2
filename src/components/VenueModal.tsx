@@ -24,7 +24,10 @@ export default function VenueModal(props: any) {
   const [stickerMeanings, setStickerMeanings] = useState<any[]>([]);
   const [assignedStickers, setAssignedStickers] = useState<any[]>([]);
   const [showCreateStickerDialog, setShowCreateStickerDialog] = useState(false);
-  
+  const [showRenameStickerDialog, setShowRenameStickerDialog] = useState(false);
+  const [renamingSticker, setRenamingSticker] = useState<any | null>(null);
+  const [renameLabel, setRenameLabel] = useState('');
+
   // Context menu state for sticker deletion
   const [contextMenu, setContextMenu] = useState<{x: number, y: number, meaningId: string, meaning: any} | null>(null);
   const [stickerFormData, setStickerFormData] = useState<any>({
@@ -410,6 +413,44 @@ export default function VenueModal(props: any) {
     }
   };
 
+  const handleRenameStickerMeaning = async () => {
+    if (!renamingSticker) return;
+    if (!renameLabel.trim()) {
+      alert('Label cannot be empty');
+      return;
+    }
+    if (renameLabel.length > 15) {
+      alert('Label must be 15 characters or less');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/stickers/meanings/${renamingSticker.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: renameLabel })
+      });
+
+      if (response.ok) {
+        await loadStickerMeanings();
+        await loadVenueStickers();
+        setShowRenameStickerDialog(false);
+        setRenamingSticker(null);
+        setRenameLabel('');
+        if (onStickerUpdate) {
+          console.debug('VenueModal: calling onStickerUpdate after rename', venue.id);
+          onStickerUpdate(venue.id);
+        }
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Failed to rename sticker');
+      }
+    } catch (err) {
+      console.error('Failed to rename sticker:', err);
+      alert('Failed to rename sticker');
+    }
+  };
+
   const assignedStickerIds = new Set((assignedStickers || []).map(s => s?.sticker_meaning_id));
 
   if (!mounted) return null;
@@ -468,26 +509,26 @@ export default function VenueModal(props: any) {
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', minHeight: 32 }}>
                   {(stickerMeanings || []).map((meaning) => (
-                    <div 
-                      key={meaning.id} 
-                      onClick={() => handleAssignSticker(meaning.id)} 
+                    <div
+                      key={meaning.id}
+                      onClick={() => handleAssignSticker(meaning.id)}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         setContextMenu({ x: e.clientX, y: e.clientY, meaningId: meaning.id, meaning });
                       }}
-                      style={{ 
-                        position: 'relative', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        padding: '0.375rem 0.75rem', 
-                        backgroundColor: meaning.color, 
-                        borderRadius: 6, 
-                        fontSize: '0.75rem', 
-                        fontWeight: 500, 
-                        cursor: 'pointer', 
-                        opacity: assignedStickerIds.has(meaning.id) ? 0.5 : 1, 
-                        border: '1px solid rgba(0,0,0,0.1)' 
-                      }} 
+                      style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '0.375rem 0.75rem',
+                        backgroundColor: meaning.color,
+                        borderRadius: 6,
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        opacity: assignedStickerIds.has(meaning.id) ? 0.5 : 1,
+                        border: '1px solid rgba(0,0,0,0.1)'
+                      }}
                       title={meaning.details || meaning.label}
                     >
                       <span>{meaning.label}</span>
@@ -699,6 +740,27 @@ export default function VenueModal(props: any) {
         >
           <div
             onClick={() => {
+              setRenamingSticker(contextMenu.meaning);
+              setRenameLabel(contextMenu.meaning.label);
+              setShowRenameStickerDialog(true);
+              setContextMenu(null);
+            }}
+            style={{
+              padding: '0.5rem 0.75rem',
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              color: '#374151',
+              fontWeight: 500,
+              transition: 'background-color 0.2s',
+              borderBottom: '1px solid #e5e7eb'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            Rename
+          </div>
+          <div
+            onClick={() => {
               handleDeleteStickerMeaning(contextMenu.meaning);
               setContextMenu(null);
             }}
@@ -741,6 +803,57 @@ export default function VenueModal(props: any) {
             <div style={{ display:'flex', justifyContent:'flex-end', gap:12 }}>
               <button onClick={()=>setShowCreateStickerDialog(false)} style={{ padding:'0.5rem 1.5rem', background:'white', border:'1px solid #d1d5db', borderRadius:6 }}>Cancel</button>
               <button onClick={handleCreateStickerMeaning} style={{ padding:'0.5rem 1.5rem', background:'#3b82f6', color:'white', border:'none', borderRadius:6 }}>Create Sticker</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Sticker Dialog */}
+      {showRenameStickerDialog && renamingSticker && (
+        <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, backgroundColor:'rgba(0,0,0,0.7)', zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={()=>{setShowRenameStickerDialog(false); setRenamingSticker(null); setRenameLabel('');}}>
+          <div onClick={(e)=>e.stopPropagation()} style={{ background:'white', borderRadius:8, padding:24, maxWidth:400, width:'100%', boxShadow:'0 10px 20px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ fontSize:18, fontWeight:600, margin:0, marginBottom:12 }}>Rename Sticker</h3>
+            <div style={{ marginBottom:16 }}>
+              <label style={{ display:'block', fontSize:14, fontWeight:500, marginBottom:6 }}>New Label</label>
+              <input
+                type="text"
+                value={renameLabel}
+                onChange={(e)=>setRenameLabel(e.target.value)}
+                placeholder="Enter new sticker label"
+                style={{ width:'100%', padding:12, border:'1px solid #d1d5db', borderRadius:6 }}
+                maxLength={15}
+                autoFocus
+              />
+              <div style={{ fontSize:12, color:'#6b7280', marginTop:4 }}>
+                {renameLabel.length}/15 characters
+              </div>
+            </div>
+            <div style={{ marginBottom:12, padding:12, backgroundColor:'#f9fafb', borderRadius:6 }}>
+              <div style={{ fontSize:12, fontWeight:500, color:'#6b7280', marginBottom:4 }}>Current name:</div>
+              <div style={{ fontSize:14, color:'#374151' }}>{renamingSticker.label}</div>
+            </div>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:12 }}>
+              <button
+                onClick={()=>{setShowRenameStickerDialog(false); setRenamingSticker(null); setRenameLabel('');}}
+                style={{ padding:'0.5rem 1.5rem', background:'white', border:'1px solid #d1d5db', borderRadius:6, cursor:'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRenameStickerMeaning}
+                disabled={!renameLabel.trim() || renameLabel === renamingSticker.label}
+                style={{
+                  padding:'0.5rem 1.5rem',
+                  background: !renameLabel.trim() || renameLabel === renamingSticker.label ? '#9ca3af' : '#3b82f6',
+                  color:'white',
+                  border:'none',
+                  borderRadius:6,
+                  cursor: !renameLabel.trim() || renameLabel === renamingSticker.label ? 'not-allowed' : 'pointer',
+                  opacity: !renameLabel.trim() || renameLabel === renamingSticker.label ? 0.6 : 1
+                }}
+              >
+                Rename
+              </button>
             </div>
           </div>
         </div>
