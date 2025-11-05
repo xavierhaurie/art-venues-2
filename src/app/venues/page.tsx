@@ -406,6 +406,18 @@ export default function VenuesPage() {
     router.push('/venues', { scroll: false });
   };
 
+  // Increment per-row refresh signal(s) so VenueStickers updates without full refetch
+  const handleStickerUpdate = (venueIds: string | string[]) => {
+    const ids = Array.isArray(venueIds) ? venueIds : [venueIds];
+    setStickerRefreshSignals(prev => {
+      const next = { ...prev };
+      ids.forEach(id => {
+        next[id] = (next[id] || 0) + 1;
+      });
+      return next;
+    });
+  };
+
   const handleNoteSaved = (venueId: string, noteBody: string, noteId?: string) => {
     // Update the local venues state immediately to show the note in the table
     setVenues(prevVenues =>
@@ -823,6 +835,16 @@ export default function VenuesPage() {
           onToggleSticker={handleStickerFilterToggle}
           onClear={handleClearStickerFilters}
           onClose={() => setShowStickerPicker(false)}
+        />
+      )}
+
+      {/* Venue details modal */}
+      {selectedVenueId && selectedVenue && (
+        <VenueModal
+          venue={selectedVenue}
+          onClose={handleCloseModal}
+          onNoteSaved={handleNoteSaved}
+          onStickerUpdate={handleStickerUpdate}
         />
       )}
     </div>
