@@ -803,29 +803,38 @@ export default function VenuesPage() {
             className="overflow-x-auto"
             style={{ border: '1px solid #e5e7eb', borderRadius: 8 }}
           >
-            <table className="w-full text-sm border-collapse">
-              <thead className="bg-gray-300 border-b border-gray-200" style={{ borderBottom: '1px solid #e5e7eb' }}>
-                <tr>
-                  <th className="text-left font-semibold" style={{ padding: '10px', minWidth: '300px', maxWidth: '400px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Name</th>
+            <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '10%' }} />
+              </colgroup>
+               <thead className="bg-gray-300 border-b border-gray-200" style={{ borderBottom: '1px solid #e5e7eb' }}>
+                 <tr>
+                  <th className="text-left font-semibold" style={{ padding: '10px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Name</th>
                   <th className="text-left font-semibold" style={{ padding: '10px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Stickers, Notes & Artwork</th>
                   <th className="text-left font-semibold" style={{ padding: '10px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Type</th>
                   <th className="text-left font-semibold" style={{ padding: '10px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Locality</th>
-                  <th className="text-left font-semibold" style={{ padding: '10px', maxWidth: '250px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Artist Summary</th>
-                  <th className="text-left font-semibold" style={{ padding: '10px', maxWidth: '250px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Visitor Summary</th>
+                  <th className="text-left font-semibold" style={{ padding: '10px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Artist Summary</th>
+                  <th className="text-left font-semibold" style={{ padding: '10px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Visitor Summary</th>
                   <th className="text-left font-semibold" style={{ padding: '10px', backgroundColor: '#d1d5db' }}>Public Transit</th>
-                </tr>
-              </thead>
-              <tbody>
-                {venues.map((venue, index) => (
-                  <tr key={venue.id} style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#f2f3f5' }}>
+                 </tr>
+               </thead>
+               <tbody>
+                 {venues.map((venue, index) => (
+                   <tr key={venue.id} style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#f2f3f5' }}>
                   {/* Name first */}
-                  <td className="text-blue-600 hover:text-blue-800 cursor-pointer" style={{ padding: '10px', minWidth: '300px', maxWidth: '400px', fontWeight: 'bold', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
+                  <td className="text-blue-600 hover:text-blue-800 cursor-pointer" style={{ padding: '10px', fontWeight: 'bold', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
                     <div style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none', cursor: 'pointer' }} onClick={() => handleVenueClick(venue.id)}>
                       {venue.name}
                     </div>
                   </td>
                   {/* Stickers, Notes & Artwork next */}
-                  <td style={{ padding: '10px', minWidth: '220px', maxWidth: '500px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
+                  <td style={{ padding: '10px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
                     <div
                       style={{ display: 'flex', flexDirection: 'column', gap: '4px', cursor: 'pointer' }}
                       onMouseEnter={(e) => {
@@ -851,7 +860,7 @@ export default function VenuesPage() {
                   </td>
                   <td style={{ padding: '10px', borderRight: '1px solid #e0e0e0' }}>{venue.type}</td>
                   <td style={{ padding: '10px', borderRight: '1px solid #e0e0e0' }}>{venue.locality}</td>
-                  <td style={{ padding: '10px', maxWidth: '250px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
+                  <td style={{ padding: '10px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
                     <div
                       className="truncate"
                       style={{ cursor: 'pointer' }}
@@ -863,7 +872,7 @@ export default function VenuesPage() {
                       {venue.artist_summary}
                     </div>
                   </td>
-                  <td style={{ padding: '10px', maxWidth: '250px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
+                  <td style={{ padding: '10px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
                     <div
                       className="truncate"
                       style={{ cursor: 'pointer' }}
@@ -875,10 +884,10 @@ export default function VenuesPage() {
                       {venue.visitor_summary}
                     </div>
                   </td>
-                  <td style={{ padding: '10px' }}>{venue.public_transit}</td>
-                </tr>
-                ))}
-              </tbody>
+                   <td style={{ padding: '10px' }}>{venue.public_transit}</td>
+                 </tr>
+               ))}
+               </tbody>
             </table>
           </div>
         </div>
