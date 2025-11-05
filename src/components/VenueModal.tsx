@@ -47,6 +47,7 @@ export default function VenueModal(props: any) {
     setImagesLoading,
     incrementUploading,
     decrementUploading,
+    imagesLoading,
   } = useVenueStore();
 
   const venueNote = notes?.[venue?.id];
@@ -236,14 +237,13 @@ export default function VenueModal(props: any) {
 
     for (const file of validFiles) {
       try {
-        // Increment per-file upload counter so UI reflects active uploads accurately
         incrementUploading?.(venue.id);
         const formData = new FormData(); formData.append('file', file);
-        console.debug('VenueModal: uploading file', { name: file.name, type: file.type, size: file.size });
         const response = await fetch(`/api/venues/${venue.id}/images`, { method: 'POST', body: formData });
         if (response.ok) {
           const data = await response.json();
           addImage?.(venue.id, data.image);
+          try { props?.onImagesChanged && props.onImagesChanged(venue.id, 'added', data.image?.id); } catch {}
         } else {
           // Try to parse response body for a helpful error message
           let msg = `Failed to upload ${file.name}`;
@@ -272,7 +272,15 @@ export default function VenueModal(props: any) {
     if (!confirm('Delete this image?')) return;
     try {
       const response = await fetch(`/api/venues/${venue.id}/images/delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageId }) });
-      if (response.ok) removeImage?.(venue.id, imageId);
+      if (response.ok) {
+        removeImage?.(venue.id, imageId);
+        // Notify parent so the table can refresh its thumbnails
+        try {
+          props?.onImagesChanged && props.onImagesChanged(venue.id, 'removed', imageId);
+        } catch (e) {
+          console.warn('VenueModal: onImagesChanged callback failed', e);
+        }
+      }
     } catch (err) { console.error('Failed to delete image:', err); }
   };
 

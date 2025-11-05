@@ -92,9 +92,12 @@ export default function VenuesPage() {
   const noteTimeouts = useRef<{[venueId: string]: NodeJS.Timeout}>({});
 
   // Text tooltip state for hover/click on name, artist_summary, visitor_summary
-  const [hoveredCell, setHoveredCell] = useState<{content: React.ReactNode, x: number, y: number} | null>(null);
-  const [clickedCell, setClickedCell] = useState<{content: React.ReactNode, x: number, y: number} | null>(null);
+  const [hoveredCell, setHoveredCell] = useState<{content: React.ReactNode, x: number, y: number, venueId: string} | null>(null);
+  const [clickedCell, setClickedCell] = useState<{content: React.ReactNode, x: number, y: number, venueId: string} | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const [isOverTooltip, setIsOverTooltip] = useState(false);
+  const [isOverSource, setIsOverSource] = useState(false);
+  const [activeTooltipVenueId, setActiveTooltipVenueId] = useState<string | null>(null);
 
   // Venue images state
   const [venueImages, setVenueImages] = useState<Record<string, Array<{id: string, url: string}>>>({});
@@ -173,6 +176,11 @@ export default function VenuesPage() {
       } else {
         setUserVenueData(newUserVenueData);
       }
+
+      // Eagerly load artwork thumbnails for all venues in this batch
+      data.venues.forEach(v => {
+        try { loadVenueImages(v.id); } catch (e) { console.warn('loadVenueImages failed for', v.id, e); }
+      });
     } catch (err) {
       setError('Failed to load venues');
       console.error('Error fetching venues:', err);
@@ -453,40 +461,106 @@ export default function VenuesPage() {
     }));
   };
 
-  const handleCellHover = (event: React.MouseEvent, content: React.ReactNode) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    setHoveredCell({
-      content,
-      x: rect.left + 15,
-      y: rect.top + 10
-    });
-  };
-
-  const handleCellClick = (event: React.MouseEvent<HTMLElement>, content: React.ReactNode) => {
-    event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
-    setClickedCell({
-      content,
-      x: rect.left + 15,
-      y: rect.top + 10
-    });
-    setHoveredCell(null); // Clear hover when clicked
-  };
-
-  const loadVenueImages = async (venueId: string) => {
-    if (venueImages[venueId]) return; // Already loaded
-    try {
-      const response = await fetch(`/api/venues/${venueId}/images`);
-      if (response.ok) {
-        const data = await response.json();
-        setVenueImages(prev => ({
-          ...prev,
-          [venueId]: data.images || []
-        }));
+  // Close hover tooltip only when mouse leaves both source and tooltip; do not swap to other cells while active
+  useEffect(() => {
+    if (!clickedCell) {
+      if (!isOverTooltip && !isOverSource && hoveredCell) {
+        setHoveredCell(null);
+        setActiveTooltipVenueId(null);
       }
-    } catch (err) {
-      console.error('Failed to load venue images:', err);
     }
+  }, [isOverTooltip, isOverSource, clickedCell, hoveredCell]);
+
+  // Hide hover tooltip on scroll; keep clicked (pinned) tooltips
+  useEffect(() => {
+    const handleScrollHide = () => {
+      if (!clickedCell && hoveredCell) {
+        setHoveredCell(null);
+        setActiveTooltipVenueId(null);
+      }
+    };
+    const main = mainScrollRef.current;
+    if (main) main.addEventListener('scroll', handleScrollHide, { passive: true });
+    window.addEventListener('scroll', handleScrollHide, { passive: true });
+    return () => {
+      if (main) main.removeEventListener('scroll', handleScrollHide as EventListener);
+      window.removeEventListener('scroll', handleScrollHide as EventListener);
+    };
+  }, [clickedCell, hoveredCell]);
+
+  // Touch support: tap-to-show, tap outside tooltip to close (treat as clicked/pinned)
+  useEffect(() => {
+    const handleTouchOutside = (e: TouchEvent) => {
+      if (tooltipRef.current && !tooltipRef.current.contains(e.target as Node)) {
+        setClickedCell(null);
+        setHoveredCell(null);
+        setActiveTooltipVenueId(null);
+      }
+    };
+    document.addEventListener('touchstart', handleTouchOutside);
+    return () => document.removeEventListener('touchstart', handleTouchOutside);
+  }, []);
+
+  const handleCellHover = (event: React.MouseEvent, content: React.ReactNode, venueId: string) => {
+    // Prevent swapping to other venue while a tooltip is active
+    if ((hoveredCell || clickedCell) && activeTooltipVenueId && activeTooltipVenueId !== venueId) {
+      setIsOverSource(false); // ensure correct leave logic
+      return;
+    }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setHoveredCell({ content, x: rect.left + 15, y: rect.top + 10, venueId });
+    setActiveTooltipVenueId(venueId);
+    setIsOverSource(true);
+  };
+
+  const handleCellLeave = () => {
+    setIsOverSource(false);
+  };
+
+  const handleCellClick = (event: React.MouseEvent<HTMLElement>, content: React.ReactNode, venueId: string) => {
+    event.stopPropagation();
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setClickedCell({ content, x: rect.left + 15, y: rect.top + 10, venueId });
+    setHoveredCell(null);
+    setActiveTooltipVenueId(venueId);
+  };
+
+  const handleCellTouch = (event: React.TouchEvent<HTMLElement>, content: React.ReactNode, venueId: string) => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setClickedCell({ content, x: rect.left + 15, y: rect.top + 10, venueId });
+    setHoveredCell(null);
+    setActiveTooltipVenueId(venueId);
+  };
+
+  // Load and cache artwork thumbnails for a venue
+  async function loadVenueImages(venueId: string, force = false) {
+    // Avoid duplicate or unnecessary fetches unless forced
+    if (!force && (venueImages[venueId] !== undefined || imagesLoading[venueId])) return;
+    setImagesLoading(prev => ({ ...prev, [venueId]: true }));
+    try {
+      const resp = await fetch(`/api/venues/${venueId}/images`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setVenueImages(prev => ({ ...prev, [venueId]: data.images || [] }));
+      } else {
+        console.error('Failed to load venue images for', venueId);
+      }
+    } catch (e) {
+      console.error('Error loading venue images:', e);
+    } finally {
+      setImagesLoading(prev => ({ ...prev, [venueId]: false }));
+    }
+  }
+
+  const renderNameTooltip = (venue: Venue): React.ReactNode => {
+    return (
+      <div>
+        <div style={{ fontWeight: 600 }}>{venue.name}</div>
+        <em style={{ display: 'block', marginTop: 6, color: '#6b7280' }}>
+          (Click for details and to edit stickers and notes)
+        </em>
+      </div>
+    );
   };
 
   const renderStickersNotesArtworkTooltip = (venue: Venue, venueId: string): React.ReactNode => {
@@ -494,25 +568,17 @@ export default function VenuesPage() {
     const images = venueImages[venueId] || [];
 
     return (
-      <div
-        onClick={() => handleVenueClick(venueId)}
-        style={{ cursor: 'pointer' }}
-      >
-        {/* Stickers */}
+      <div onClick={() => handleVenueClick(venueId)} style={{ cursor: 'pointer' }}>
         {venue.user_stickers && venue.user_stickers.length > 0 && (
           <div style={{ marginBottom: '8px' }}>
             <strong>Stickers:</strong> {venue.user_stickers.map(s => s.label).join(', ')}
           </div>
         )}
-
-        {/* Notes */}
         {venueData?.notes && (
           <div style={{ marginBottom: '8px' }}>
             <strong>Notes:</strong> {venueData.notes}
           </div>
         )}
-
-        {/* Artwork - 100px thumbnails in tooltip */}
         {images.length > 0 && (
           <div>
             <strong>Artwork:</strong>
@@ -522,28 +588,17 @@ export default function VenuesPage() {
                   key={image.id}
                   src={image.url}
                   alt="Artwork"
-                  style={{
-                    width: '100px',
-                    height: '100px',
-                    objectFit: 'cover',
-                    borderRadius: '4px',
-                    border: '1px solid #e5e7eb'
-                  }}
+                  style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #e5e7eb' }}
                 />
               ))}
             </div>
           </div>
         )}
-
         {!venue.user_stickers?.length && !venueData?.notes && images.length === 0 && (
           <div>No stickers, notes, or artwork</div>
         )}
-
-        {/* Instruction text */}
         <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
-          <em style={{ fontSize: '13px', color: '#6b7280' }}>
-            (Click to open venue details)
-          </em>
+          <em style={{ fontSize: '13px', color: '#6b7280' }}>(Click to open venue details)</em>
         </div>
       </div>
     );
@@ -552,9 +607,7 @@ export default function VenuesPage() {
   const renderNotesCell = (venueId: string) => {
     const venueData = userVenueData[venueId];
     if (!venueData || !venueData.notes) return null;
-
     const isSaving = savingNotes[venueId];
-
     return (
       <div className="p-2 relative">
         <div className="text-sm text-gray-700 truncate" style={{ maxWidth: '200px' }}>
@@ -591,10 +644,7 @@ export default function VenuesPage() {
           </form>
 
           <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setShowLocalityPicker(true)}
-              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
-            >
+            <button onClick={() => setShowLocalityPicker(true)} className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2">
               <span>
                 {selectedLocalities.length === 0
                   ? 'All Localities'
@@ -607,10 +657,7 @@ export default function VenuesPage() {
               </svg>
             </button>
 
-            <button
-              onClick={() => setShowVenueTypePicker(true)}
-              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
-            >
+            <button onClick={() => setShowVenueTypePicker(true)} className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2">
               <span>
                 {selectedVenueTypes.length === 0
                   ? 'All Types'
@@ -623,21 +670,14 @@ export default function VenuesPage() {
               </svg>
             </button>
 
-            <select
-              value={filters.public_transit}
-              onChange={(e) => handleFilterChange('public_transit', e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md"
-            >
+            <select value={filters.public_transit} onChange={(e) => handleFilterChange('public_transit', e.target.value)} className="px-3 py-2 border border-gray-300 rounded-md">
               <option value="">All Transit Access</option>
               <option value="yes">Yes</option>
               <option value="partial">Partial</option>
               <option value="no">No</option>
             </select>
 
-            <button
-              onClick={() => setShowStickerPicker(true)}
-              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
-            >
+            <button onClick={() => setShowStickerPicker(true)} className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2">
               <span>
                 {selectedStickerFilters.length === 0
                   ? 'All Stickers'
@@ -653,84 +693,58 @@ export default function VenuesPage() {
         </div>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md">
-            {error}
-          </div>
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md">{error}</div>
         )}
 
-        {/* Top scrollbar */}
         <div ref={topScrollRef} className="overflow-x-auto border border-gray-300 rounded-t-lg" style={{ overflowY: 'hidden' }}>
-          <div style={{ width: '2000px', height: '1px' }}></div>
+          <div style={{ width: '2000px', height: '1px' }} />
         </div>
 
-        {/* Main table with scrollbar */}
         <div ref={mainScrollRef} className="overflow-x-auto border-l border-r border-b border-gray-300">
           <table className="w-full text-sm border-collapse">
             <thead className="bg-gray-100 border-b border-gray-300">
               <tr>
-                <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Stickers, Notes & Artwork</th>
                 <th className="text-left font-semibold" style={{ padding: '5px', minWidth: '300px', maxWidth: '400px', borderRight: '1px solid #e0e0e0' }}>Name</th>
+                <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Stickers, Notes & Artwork</th>
                 <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Type</th>
                 <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Locality</th>
-                <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Artist Summary</th>
-                <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Visitor Summary</th>
+                <th className="text-left font-semibold" style={{ padding: '5px', maxWidth: '250px', borderRight: '1px solid #e0e0e0' }}>Artist Summary</th>
+                <th className="text-left font-semibold" style={{ padding: '5px', maxWidth: '250px', borderRight: '1px solid #e0e0e0' }}>Visitor Summary</th>
                 <th className="text-left font-semibold" style={{ padding: '5px' }}>Public Transit</th>
               </tr>
             </thead>
             <tbody>
               {venues.map((venue, index) => (
-                <tr
-                  key={venue.id}
-                  style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#f2f3f5' }}
-                >
+                <tr key={venue.id} style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#f2f3f5' }}>
+                  {/* Name first */}
+                  <td className="text-blue-600 hover:text-blue-800 cursor-pointer" style={{ padding: '5px', minWidth: '300px', maxWidth: '400px', fontWeight: 'bold', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
+                    <div style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none', cursor: 'pointer' }} onClick={() => handleVenueClick(venue.id)}>
+                      {venue.name}
+                    </div>
+                  </td>
+                  {/* Stickers, Notes & Artwork next */}
                   <td style={{ padding: '5px', minWidth: '220px', maxWidth: '500px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
                     <div
                       style={{ display: 'flex', flexDirection: 'column', gap: '4px', cursor: 'pointer' }}
                       onMouseEnter={(e) => {
-                        loadVenueImages(venue.id); // Load images if not already loaded
-                        handleCellHover(e, renderStickersNotesArtworkTooltip(venue, venue.id));
+                        // Eager loading already triggered; only manage tooltip on hover
+                        handleCellHover(e, renderStickersNotesArtworkTooltip(venue, venue.id), venue.id);
                       }}
-                      onMouseLeave={() => setHoveredCell(null)}
+                      onMouseLeave={handleCellLeave}
                       onClick={(e) => {
-                        loadVenueImages(venue.id);
-                        handleCellClick(e, renderStickersNotesArtworkTooltip(venue, venue.id));
+                        handleCellClick(e, renderStickersNotesArtworkTooltip(venue, venue.id), venue.id);
                       }}
                     >
-                      <VenueStickers
-                        venueId={venue.id}
-                        refreshSignal={stickerRefreshSignals[venue.id] || 0}
-                        initialStickers={venue.user_stickers}
-                      />
+                      <VenueStickers venueId={venue.id} refreshSignal={stickerRefreshSignals[venue.id] || 0} initialStickers={venue.user_stickers} />
                       {renderNotesCell(venue.id)}
-                      {(venueImages[venue.id] && venueImages[venue.id].length > 0) && (
+                      {/* Remove spinner; just render thumbnails if present */}
+                      {venueImages[venue.id] && venueImages[venue.id].length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
                           {venueImages[venue.id].map((image) => (
-                            <img
-                              key={image.id}
-                              src={image.url}
-                              alt="Artwork"
-                              style={{
-                                width: '50px',
-                                height: '50px',
-                                objectFit: 'cover',
-                                borderRadius: '4px',
-                                border: '1px solid #e5e7eb'
-                              }}
-                            />
+                            <img key={image.id} src={image.url} alt="Artwork" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #e5e7eb' }} />
                           ))}
                         </div>
                       )}
-                    </div>
-                  </td>
-                  <td
-                    className="text-blue-600 hover:text-blue-800 cursor-pointer"
-                    style={{ padding: '5px', minWidth: '300px', maxWidth: '400px', fontWeight: 'bold', borderRight: '1px solid #e0e0e0', position: 'relative' }}
-                  >
-                    <div
-                      style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}
-                      onClick={() => handleVenueClick(venue.id)}
-                    >
-                      {venue.name}
                     </div>
                   </td>
                   <td style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>{venue.type}</td>
@@ -739,9 +753,10 @@ export default function VenuesPage() {
                     <div
                       className="truncate"
                       style={{ cursor: 'pointer' }}
-                      onMouseEnter={(e) => venue.artist_summary && handleCellHover(e, venue.artist_summary)}
-                      onMouseLeave={() => setHoveredCell(null)}
-                      onClick={(e) => venue.artist_summary && handleCellClick(e, venue.artist_summary)}
+                      onMouseEnter={(e) => venue.artist_summary && handleCellHover(e, venue.artist_summary, venue.id)}
+                      onMouseLeave={handleCellLeave}
+                      onTouchStart={(e) => venue.artist_summary && handleCellTouch(e, venue.artist_summary, venue.id)}
+                      onClick={(e) => venue.artist_summary && handleCellClick(e, venue.artist_summary, venue.id)}
                     >
                       {venue.artist_summary}
                     </div>
@@ -750,9 +765,10 @@ export default function VenuesPage() {
                     <div
                       className="truncate"
                       style={{ cursor: 'pointer' }}
-                      onMouseEnter={(e) => venue.visitor_summary && handleCellHover(e, venue.visitor_summary)}
-                      onMouseLeave={() => setHoveredCell(null)}
-                      onClick={(e) => venue.visitor_summary && handleCellClick(e, venue.visitor_summary)}
+                      onMouseEnter={(e) => venue.visitor_summary && handleCellHover(e, venue.visitor_summary, venue.id)}
+                      onMouseLeave={handleCellLeave}
+                      onTouchStart={(e) => venue.visitor_summary && handleCellTouch(e, venue.visitor_summary, venue.id)}
+                      onClick={(e) => venue.visitor_summary && handleCellClick(e, venue.visitor_summary, venue.id)}
                     >
                       {venue.visitor_summary}
                     </div>
@@ -764,45 +780,26 @@ export default function VenuesPage() {
           </table>
         </div>
 
-        {/* Bottom scrollbar */}
         <div ref={bottomScrollRef} className="overflow-x-auto border-l border-r border-b border-gray-300 rounded-b-lg" style={{ overflowY: 'hidden' }}>
-          <div style={{ width: '2000px', height: '1px' }}></div>
+          <div style={{ width: '2000px', height: '1px' }} />
         </div>
 
-        {/* Infinite scroll sentinel */}
         <div ref={observerTarget} className="h-10 flex items-center justify-center mt-4">
-          {loadingMore.current && hasMore && (
-            <div className="text-gray-500 text-sm">Loading more venues...</div>
-          )}
-          {!hasMore && venues.length > 0 && (
-            <div className="text-gray-400 text-sm">No more venues to load</div>
-          )}
+          {loadingMore.current && hasMore && <div className="text-gray-500 text-sm">Loading more venues...</div>}
+          {!hasMore && venues.length > 0 && <div className="text-gray-400 text-sm">No more venues to load</div>}
         </div>
       </div>
 
-      {/* Text tooltip overlay */}
       {(hoveredCell || clickedCell) && (
         <div
           ref={tooltipRef}
-          style={{
-            position: 'fixed',
-            left: (clickedCell || hoveredCell)!.x,
-            top: (clickedCell || hoveredCell)!.y,
-            backgroundColor: 'white',
-            border: '2px solid #3b82f6',
-            borderRadius: '8px',
-            padding: '12px 16px',
-            minWidth: '200px',
-            maxWidth: '500px',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-            zIndex: 9999,
-            fontSize: '14px',
-            lineHeight: '1.5',
-            color: '#1f2937',
-            whiteSpace: 'pre-wrap',
-            wordWrap: 'break-word',
-            pointerEvents: clickedCell ? 'auto' : 'none'
+          onMouseEnter={() => setIsOverTooltip(true)}
+          onMouseLeave={() => setIsOverTooltip(false)}
+          onClick={() => {
+            const vid = (clickedCell || hoveredCell)!.venueId;
+            handleVenueClick(vid);
           }}
+          style={{ position: 'fixed', left: (clickedCell || hoveredCell)!.x, top: (clickedCell || hoveredCell)!.y, backgroundColor: 'white', border: '2px solid #3b82f6', borderRadius: '8px', padding: '12px 16px', minWidth: '200px', maxWidth: '500px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', zIndex: 9999, fontSize: '14px', lineHeight: '1.5', color: '#1f2937', whiteSpace: 'pre-wrap', wordWrap: 'break-word', pointerEvents: 'auto' }}
         >
           {(clickedCell || hoveredCell)!.content}
         </div>
@@ -838,13 +835,21 @@ export default function VenuesPage() {
         />
       )}
 
-      {/* Venue details modal */}
       {selectedVenueId && selectedVenue && (
         <VenueModal
           venue={selectedVenue}
           onClose={handleCloseModal}
           onNoteSaved={handleNoteSaved}
           onStickerUpdate={handleStickerUpdate}
+          onImagesChanged={(venueId: string) => {
+            setVenueImages(prev => {
+              const next = { ...prev };
+              delete next[venueId];
+              return next;
+            });
+            setImagesLoading(prev => ({ ...prev, [venueId]: true }));
+            loadVenueImages(venueId, true);
+          }}
         />
       )}
     </div>
