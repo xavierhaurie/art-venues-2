@@ -15,7 +15,7 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
   const {
     page = 1,
     page_size = 25,
-    locality,
+    localities,
     type,
     public_transit,
     has_open_call = false,
@@ -65,8 +65,8 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
       .in('id', venueIdsWithStickers);
 
     // Apply other filters
-    if (locality) {
-      query = query.eq('locality', locality);
+    if (localities && localities.length > 0) {
+      query = query.in('locality', localities);
     }
 
     if (type) {
@@ -123,8 +123,8 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     .select(selectClause, { count: 'exact' });
 
   // Apply filters
-  if (locality) {
-    query = query.eq('locality', locality);
+  if (localities && localities.length > 0) {
+    query = query.in('locality', localities);
   }
 
   if (type) {

@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
     const page_size = Math.min(parseInt(searchParams.get('page_size') || '25', 10), 100); // Cap at 100
 
     // Parse filter parameters
-    const locality = searchParams.get('locality') || undefined;
+    const localities_param = searchParams.get('localities');
+    const localities = localities_param ? localities_param.split(',') : undefined;
     const type = searchParams.get('type') || undefined;
     const public_transit = searchParams.get('public_transit') as 'yes' | 'partial' | 'no' | undefined;
     const has_open_call = searchParams.get('has_open_call') === 'true';
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
     const params: VenueListParams = {
       page,
       page_size,
-      locality,
+      localities,
       type: type as any,
       public_transit,
       has_open_call,

@@ -49,7 +49,7 @@ export interface Venue {
 export interface VenueListParams {
   page?: number;
   page_size?: number;
-  locality?: string;
+  localities?: string[]; // filter by multiple localities
   type?: VenueType;
   public_transit?: 'yes' | 'partial' | 'no';
   has_open_call?: boolean;

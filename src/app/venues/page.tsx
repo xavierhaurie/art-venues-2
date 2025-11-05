@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import VenueModal from '@/components/VenueModal';
 import VenueStickers from '@/components/VenueStickers';
+import LocalityPickerModal from '@/components/LocalityPickerModal';
 import { useVenueStore } from '@/lib/store/venueStore';
 
 interface Venue {
@@ -64,6 +65,11 @@ export default function VenuesPage() {
     public_transit: '',
   });
 
+  // Locality picker state
+  const [localities, setLocalities] = useState<Array<{id: string, name: string}>>([]);
+  const [selectedLocalities, setSelectedLocalities] = useState<string[]>([]);
+  const [showLocalityPicker, setShowLocalityPicker] = useState(false);
+
   // Sticker filter state
   const [stickerMeanings, setStickerMeanings] = useState<Array<{id: string, color: string, label: string, details: string | null}>>([]);
   const [selectedStickerFilters, setSelectedStickerFilters] = useState<string[]>([]); // Array of sticker_meaning_id
@@ -99,7 +105,7 @@ export default function VenuesPage() {
 
   const { selectedVenueId, openModal, closeModal } = useVenueStore();
 
-  const fetchVenues = async (page = 1, search = '', filterParams = filters, stickerFilters = selectedStickerFilters, append = false) => {
+  const fetchVenues = async (page = 1, search = '', filterParams = filters, stickerFilters = selectedStickerFilters, localityFilters = selectedLocalities, append = false) => {
     try {
       if (!append) {
         setLoading(true);
@@ -108,10 +114,14 @@ export default function VenuesPage() {
         page: page.toString(),
         page_size: '10', // Chunk size for infinite scroll
         ...(search && { q: search }),
-        ...(filterParams.locality && { locality: filterParams.locality }),
         ...(filterParams.type && { type: filterParams.type }),
         ...(filterParams.public_transit && { public_transit: filterParams.public_transit }),
       });
+
+      // Add locality filters (multiple)
+      if (localityFilters.length > 0) {
+        params.append('localities', localityFilters.join(','));
+      }
 
       // Add sticker filters
       if (stickerFilters.length > 0) {
@@ -161,7 +171,20 @@ export default function VenuesPage() {
   useEffect(() => {
     fetchVenues();
     loadStickerMeanings();
+    loadLocalities();
   }, []);
+
+  const loadLocalities = async () => {
+    try {
+      const response = await fetch('/api/localities');
+      if (response.ok) {
+        const data = await response.json();
+        setLocalities(data.localities || []);
+      }
+    } catch (err) {
+      console.error('Failed to load localities:', err);
+    }
+  };
 
   const loadStickerMeanings = async () => {
     try {
@@ -226,7 +249,7 @@ export default function VenuesPage() {
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading && !loadingMore.current) {
           loadingMore.current = true;
-          fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, true);
+          fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, selectedLocalities, true);
         }
       },
       { threshold: 0.1 }
@@ -281,7 +304,7 @@ export default function VenuesPage() {
     e.preventDefault();
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, false);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, false);
   };
 
   const handleFilterChange = (key: string, value: string) => {
@@ -289,7 +312,7 @@ export default function VenuesPage() {
     setFilters(newFilters);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, newFilters, selectedStickerFilters, false);
+    fetchVenues(1, searchQuery, newFilters, selectedStickerFilters, selectedLocalities, false);
   };
 
   const handleStickerFilterToggle = (stickerMeaningId: string) => {
@@ -300,7 +323,25 @@ export default function VenuesPage() {
     setSelectedStickerFilters(newSelectedFilters);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, newSelectedFilters, false);
+    fetchVenues(1, searchQuery, filters, newSelectedFilters, selectedLocalities, false);
+  };
+
+  const handleLocalityToggle = (localityName: string) => {
+    const newSelectedLocalities = selectedLocalities.includes(localityName)
+      ? selectedLocalities.filter(name => name !== localityName)
+      : [...selectedLocalities, localityName];
+
+    setSelectedLocalities(newSelectedLocalities);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, newSelectedLocalities, false);
+  };
+
+  const handleClearLocalities = () => {
+    setSelectedLocalities([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, [], false);
   };
 
   const handleVenueClick = (venueId: string) => {
@@ -550,18 +591,21 @@ export default function VenuesPage() {
           </form>
 
           <div className="flex flex-wrap gap-4">
-            <select
-              value={filters.locality}
-              onChange={(e) => handleFilterChange('locality', e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md"
+            <button
+              onClick={() => setShowLocalityPicker(true)}
+              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
             >
-              <option value="">All Localities</option>
-              <option value="Jamaica Plain">Jamaica Plain</option>
-              <option value="Somerville">Somerville</option>
-              <option value="Cambridge">Cambridge</option>
-              <option value="South End">South End</option>
-              <option value="North End">North End</option>
-            </select>
+              <span>
+                {selectedLocalities.length === 0
+                  ? 'All Localities'
+                  : selectedLocalities.length === 1
+                  ? '1 Locality Selected'
+                  : `${selectedLocalities.length} Localities Selected`}
+              </span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
 
             <select
               value={filters.type}
@@ -832,6 +876,16 @@ export default function VenuesPage() {
             } catch (e) {}
             setStickerRefreshSignals(prev => ({ ...prev, [venueId]: (prev[venueId] || 0) + 1 }));
           }}
+        />
+      )}
+
+      {showLocalityPicker && (
+        <LocalityPickerModal
+          localities={localities}
+          selectedLocalities={selectedLocalities}
+          onToggleLocality={handleLocalityToggle}
+          onClear={handleClearLocalities}
+          onClose={() => setShowLocalityPicker(false)}
         />
       )}
     </div>
