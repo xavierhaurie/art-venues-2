@@ -24,6 +24,9 @@ export default function VenueModal(props: any) {
   const [stickerMeanings, setStickerMeanings] = useState<any[]>([]);
   const [assignedStickers, setAssignedStickers] = useState<any[]>([]);
   const [showCreateStickerDialog, setShowCreateStickerDialog] = useState(false);
+  
+  // Context menu state for sticker deletion
+  const [contextMenu, setContextMenu] = useState<{x: number, y: number, meaningId: string, meaning: any} | null>(null);
   const [stickerFormData, setStickerFormData] = useState<any>({
     color: '#ADD8E6',
     label: '',
@@ -84,6 +87,15 @@ export default function VenueModal(props: any) {
       color: getNextAvailableColor()
     }));
   }, [stickerMeanings]);
+
+  // Close context menu on click anywhere
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    if (contextMenu) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [contextMenu]);
 
   const loadNotes = async () => {
     try {
@@ -449,15 +461,36 @@ export default function VenueModal(props: any) {
 
               {/* Available Stickers Row */}
               <div style={{ marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem' }}>
                   <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>Available:</span>
-                  <button onClick={() => setShowCreateStickerDialog(true)} style={{ marginLeft: '0.5rem', padding: '0.25rem 0.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: 4, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><span style={{ fontSize: '0.875rem' }}>+</span> New</button>
+                  <button onClick={() => setShowCreateStickerDialog(true)} style={{ padding: '0.25rem 0.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: 4, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><span style={{ fontSize: '0.875rem' }}>+</span> New</button>
+                  <span style={{ fontSize: '0.75rem', color: '#6b7280', fontStyle: 'italic' }}>Right-click to remove</span>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', minHeight: 32 }}>
                   {(stickerMeanings || []).map((meaning) => (
-                    <div key={meaning.id} onClick={() => handleAssignSticker(meaning.id)} style={{ position: 'relative', display: 'flex', alignItems: 'center', padding: '0.375rem 0.75rem', backgroundColor: meaning.color, borderRadius: 6, fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer', opacity: assignedStickerIds.has(meaning.id) ? 0.5 : 1, border: '1px solid rgba(0,0,0,0.1)' }} title={meaning.details || meaning.label}>
+                    <div 
+                      key={meaning.id} 
+                      onClick={() => handleAssignSticker(meaning.id)} 
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setContextMenu({ x: e.clientX, y: e.clientY, meaningId: meaning.id, meaning });
+                      }}
+                      style={{ 
+                        position: 'relative', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        padding: '0.375rem 0.75rem', 
+                        backgroundColor: meaning.color, 
+                        borderRadius: 6, 
+                        fontSize: '0.75rem', 
+                        fontWeight: 500, 
+                        cursor: 'pointer', 
+                        opacity: assignedStickerIds.has(meaning.id) ? 0.5 : 1, 
+                        border: '1px solid rgba(0,0,0,0.1)' 
+                      }} 
+                      title={meaning.details || meaning.label}
+                    >
                       <span>{meaning.label}</span>
-                      <button onClick={(e) => { e.stopPropagation(); handleDeleteStickerMeaning(meaning); }} style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '50%', width: 16, height: 16, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                     </div>
                   ))}
                 </div>
@@ -606,11 +639,84 @@ export default function VenueModal(props: any) {
               )}
             </div>
 
-            {/* Footer: no cancel button per request (actions are in-note area) */}
-            <div style={{ marginTop: '2rem' }} />
+             {/* Footer */}
+            <div style={{
+              padding: '1.5rem',
+              borderTop: '1px solid #e5e7eb',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={handleClose}
+                disabled={isSaving || uploadingCount > 0}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  cursor: (isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
+                  opacity: (isSaving || uploadingCount > 0) ? 0.5 : 1,
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSaving && uploadingCount === 0) {
+                    e.currentTarget.style.backgroundColor = '#2563eb';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSaving && uploadingCount === 0) {
+                    e.currentTarget.style.backgroundColor = '#3b82f6';
+                  }
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Context Menu for Sticker Deletion */}
+      {contextMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            backgroundColor: 'white',
+            border: '1px solid #d1d5db',
+            borderRadius: 6,
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            zIndex: 10002,
+            minWidth: 120,
+            overflow: 'hidden'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            onClick={() => {
+              handleDeleteStickerMeaning(contextMenu.meaning);
+              setContextMenu(null);
+            }}
+            style={{
+              padding: '0.5rem 0.75rem',
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              color: '#dc2626',
+              fontWeight: 500,
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fef2f2'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            Remove
+          </div>
+        </div>
+      )}
 
       {/* Create Sticker Dialog */}
       {showCreateStickerDialog && (

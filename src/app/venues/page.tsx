@@ -470,18 +470,6 @@ export default function VenuesPage() {
     }
   };
 
-  const renderVenueNameTooltip = (name: string): React.ReactNode => {
-    return (
-      <>
-        {name}
-        <br /><br />
-        <em style={{ fontSize: '13px', color: '#6b7280' }}>
-          (Click the venue name for details and to edit stickers and notes)
-        </em>
-      </>
-    );
-  };
-
   const renderStickersNotesArtworkTooltip = (venue: Venue, venueId: string): React.ReactNode => {
     const venueData = userVenueData[venueId];
     const images = venueImages[venueId] || [];
@@ -783,8 +771,6 @@ export default function VenuesPage() {
                   >
                     <div
                       style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}
-                      onMouseEnter={(e) => handleCellHover(e, renderVenueNameTooltip(venue.name))}
-                      onMouseLeave={() => setHoveredCell(null)}
                       onClick={() => handleVenueClick(venue.id)}
                     >
                       {venue.name}
