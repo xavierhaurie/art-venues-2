@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
     // Parse filter parameters
     const localities_param = searchParams.get('localities');
     const localities = localities_param ? localities_param.split(',') : undefined;
-    const type = searchParams.get('type') || undefined;
+    const types_param = searchParams.get('types');
+    const types = types_param ? types_param.split(',') : undefined;
     const public_transit = searchParams.get('public_transit') as 'yes' | 'partial' | 'no' | undefined;
     const has_open_call = searchParams.get('has_open_call') === 'true';
 
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
       page,
       page_size,
       localities,
-      type: type as any,
+      types,
       public_transit,
       has_open_call,
       sort,

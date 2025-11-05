@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import VenueModal from '@/components/VenueModal';
 import VenueStickers from '@/components/VenueStickers';
 import LocalityPickerModal from '@/components/LocalityPickerModal';
+import VenueTypePickerModal from '@/components/VenueTypePickerModal';
 import { useVenueStore } from '@/lib/store/venueStore';
 
 interface Venue {
@@ -70,6 +71,11 @@ export default function VenuesPage() {
   const [selectedLocalities, setSelectedLocalities] = useState<string[]>([]);
   const [showLocalityPicker, setShowLocalityPicker] = useState(false);
 
+  // Venue type picker state
+  const [venueTypes, setVenueTypes] = useState<Array<{id: string, name: string}>>([]);
+  const [selectedVenueTypes, setSelectedVenueTypes] = useState<string[]>([]);
+  const [showVenueTypePicker, setShowVenueTypePicker] = useState(false);
+
   // Sticker filter state
   const [stickerMeanings, setStickerMeanings] = useState<Array<{id: string, color: string, label: string, details: string | null}>>([]);
   const [selectedStickerFilters, setSelectedStickerFilters] = useState<string[]>([]); // Array of sticker_meaning_id
@@ -105,7 +111,7 @@ export default function VenuesPage() {
 
   const { selectedVenueId, openModal, closeModal } = useVenueStore();
 
-  const fetchVenues = async (page = 1, search = '', filterParams = filters, stickerFilters = selectedStickerFilters, localityFilters = selectedLocalities, append = false) => {
+  const fetchVenues = async (page = 1, search = '', filterParams = filters, stickerFilters = selectedStickerFilters, localityFilters = selectedLocalities, venueTypeFilters = selectedVenueTypes, append = false) => {
     try {
       if (!append) {
         setLoading(true);
@@ -114,13 +120,17 @@ export default function VenuesPage() {
         page: page.toString(),
         page_size: '10', // Chunk size for infinite scroll
         ...(search && { q: search }),
-        ...(filterParams.type && { type: filterParams.type }),
         ...(filterParams.public_transit && { public_transit: filterParams.public_transit }),
       });
 
       // Add locality filters (multiple)
       if (localityFilters.length > 0) {
         params.append('localities', localityFilters.join(','));
+      }
+
+      // Add venue type filters (multiple)
+      if (venueTypeFilters.length > 0) {
+        params.append('types', venueTypeFilters.join(','));
       }
 
       // Add sticker filters
@@ -172,6 +182,7 @@ export default function VenuesPage() {
     fetchVenues();
     loadStickerMeanings();
     loadLocalities();
+    loadVenueTypes();
   }, []);
 
   const loadLocalities = async () => {
@@ -183,6 +194,18 @@ export default function VenuesPage() {
       }
     } catch (err) {
       console.error('Failed to load localities:', err);
+    }
+  };
+
+  const loadVenueTypes = async () => {
+    try {
+      const response = await fetch('/api/venue-types');
+      if (response.ok) {
+        const data = await response.json();
+        setVenueTypes(data.venueTypes || []);
+      }
+    } catch (err) {
+      console.error('Failed to load venue types:', err);
     }
   };
 
@@ -249,7 +272,7 @@ export default function VenuesPage() {
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading && !loadingMore.current) {
           loadingMore.current = true;
-          fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, selectedLocalities, true);
+          fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, true);
         }
       },
       { threshold: 0.1 }
@@ -304,7 +327,7 @@ export default function VenuesPage() {
     e.preventDefault();
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, false);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false);
   };
 
   const handleFilterChange = (key: string, value: string) => {
@@ -312,7 +335,7 @@ export default function VenuesPage() {
     setFilters(newFilters);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, newFilters, selectedStickerFilters, selectedLocalities, false);
+    fetchVenues(1, searchQuery, newFilters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false);
   };
 
   const handleStickerFilterToggle = (stickerMeaningId: string) => {
@@ -323,7 +346,7 @@ export default function VenuesPage() {
     setSelectedStickerFilters(newSelectedFilters);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, newSelectedFilters, selectedLocalities, false);
+    fetchVenues(1, searchQuery, filters, newSelectedFilters, selectedLocalities, selectedVenueTypes, false);
   };
 
   const handleLocalityToggle = (localityName: string) => {
@@ -334,14 +357,32 @@ export default function VenuesPage() {
     setSelectedLocalities(newSelectedLocalities);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, newSelectedLocalities, false);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, newSelectedLocalities, selectedVenueTypes, false);
   };
 
   const handleClearLocalities = () => {
     setSelectedLocalities([]);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, [], false);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, [], selectedVenueTypes, false);
+  };
+
+  const handleVenueTypeToggle = (venueTypeName: string) => {
+    const newSelectedVenueTypes = selectedVenueTypes.includes(venueTypeName)
+      ? selectedVenueTypes.filter(name => name !== venueTypeName)
+      : [...selectedVenueTypes, venueTypeName];
+
+    setSelectedVenueTypes(newSelectedVenueTypes);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, newSelectedVenueTypes, false);
+  };
+
+  const handleClearVenueTypes = () => {
+    setSelectedVenueTypes([]);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, [], false);
   };
 
   const handleVenueClick = (venueId: string) => {
@@ -595,24 +636,21 @@ export default function VenuesPage() {
               </svg>
             </button>
 
-            <select
-              value={filters.type}
-              onChange={(e) => handleFilterChange('type', e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md"
+            <button
+              onClick={() => setShowVenueTypePicker(true)}
+              className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2"
             >
-              <option value="">All Types</option>
-              <option value="gallery - commercial">Gallery - Commercial</option>
-              <option value="gallery - non-profit">Gallery - Non-profit</option>
-              <option value="library">Library</option>
-              <option value="cafe-restaurant">Cafe/Restaurant</option>
-              <option value="association">Association</option>
-              <option value="market">Market</option>
-              <option value="store">Store</option>
-              <option value="online">Online</option>
-              <option value="open studios">Open Studios</option>
-              <option value="public art">Public Art</option>
-              <option value="other">Other</option>
-            </select>
+              <span>
+                {selectedVenueTypes.length === 0
+                  ? 'All Types'
+                  : selectedVenueTypes.length === 1
+                  ? '1 Type Selected'
+                  : `${selectedVenueTypes.length} Types Selected`}
+              </span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
 
             <select
               value={filters.public_transit}
@@ -872,6 +910,16 @@ export default function VenuesPage() {
           onToggleLocality={handleLocalityToggle}
           onClear={handleClearLocalities}
           onClose={() => setShowLocalityPicker(false)}
+        />
+      )}
+
+      {showVenueTypePicker && (
+        <VenueTypePickerModal
+          venueTypes={venueTypes}
+          selectedVenueTypes={selectedVenueTypes}
+          onToggleVenueType={handleVenueTypeToggle}
+          onClear={handleClearVenueTypes}
+          onClose={() => setShowVenueTypePicker(false)}
         />
       )}
     </div>

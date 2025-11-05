@@ -50,7 +50,7 @@ export interface VenueListParams {
   page?: number;
   page_size?: number;
   localities?: string[]; // filter by multiple localities
-  type?: VenueType;
+  types?: string[]; // filter by multiple venue types
   public_transit?: 'yes' | 'partial' | 'no';
   has_open_call?: boolean;
   sort?: 'name' | 'locality';

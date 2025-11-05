@@ -16,7 +16,7 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     page = 1,
     page_size = 25,
     localities,
-    type,
+    types,
     public_transit,
     has_open_call = false,
     sort = 'name',
@@ -69,8 +69,8 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
       query = query.in('locality', localities);
     }
 
-    if (type) {
-      query = query.eq('type', type);
+    if (types && types.length > 0) {
+      query = query.in('type', types);
     }
 
     if (public_transit) {
@@ -127,8 +127,8 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     query = query.in('locality', localities);
   }
 
-  if (type) {
-    query = query.eq('type', type);
+  if (types && types.length > 0) {
+    query = query.in('type', types);
   }
 
   if (public_transit) {
