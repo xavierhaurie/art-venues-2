@@ -433,10 +433,10 @@ export default function VenueModal(props: any) {
     }
 
     try {
-      const response = await fetch(`/api/stickers/meanings/${renamingSticker.id}`, {
-        method: 'PUT',
+      const response = await fetch(`/api/stickers/meanings/update?id=${renamingSticker.id}`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: renameLabel })
+        body: JSON.stringify({ color: renamingSticker.color, label: renameLabel, details: renamingSticker.details || '' })
       });
 
       if (response.ok) {

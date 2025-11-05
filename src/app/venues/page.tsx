@@ -7,6 +7,7 @@ import VenueStickers from '@/components/VenueStickers';
 import LocalityPickerModal from '@/components/LocalityPickerModal';
 import VenueTypePickerModal from '@/components/VenueTypePickerModal';
 import StickerPickerModal from '@/components/StickerPickerModal';
+import OtherFiltersModal from '@/components/OtherFiltersModal';
 import { useVenueStore } from '@/lib/store/venueStore';
 
 interface Venue {
@@ -66,6 +67,8 @@ export default function VenuesPage() {
     type: '',
     public_transit: '',
   });
+  const [transitKnown, setTransitKnown] = useState(false);
+  const [showOtherFilters, setShowOtherFilters] = useState(false);
 
   // Locality picker state
   const [localities, setLocalities] = useState<Array<{id: string, name: string}>>([]);
@@ -118,32 +121,21 @@ export default function VenuesPage() {
 
   const { selectedVenueId, openModal, closeModal } = useVenueStore();
 
-  const fetchVenues = async (page = 1, search = '', filterParams = filters, stickerFilters = selectedStickerFilters, localityFilters = selectedLocalities, venueTypeFilters = selectedVenueTypes, append = false) => {
+  const fetchVenues = async (page = 1, search = '', filterParams = filters, stickerFilters = selectedStickerFilters, localityFilters = selectedLocalities, venueTypeFilters = selectedVenueTypes, append = false, transitKnownFlag = transitKnown) => {
     try {
       if (!append) {
         setLoading(true);
       }
       const params = new URLSearchParams({
         page: page.toString(),
-        page_size: '10', // Chunk size for infinite scroll
+        page_size: '10',
         ...(search && { q: search }),
         ...(filterParams.public_transit && { public_transit: filterParams.public_transit }),
       });
-
-      // Add locality filters (multiple)
-      if (localityFilters.length > 0) {
-        params.append('localities', localityFilters.join(','));
-      }
-
-      // Add venue type filters (multiple)
-      if (venueTypeFilters.length > 0) {
-        params.append('types', venueTypeFilters.join(','));
-      }
-
-      // Add sticker filters
-      if (stickerFilters.length > 0) {
-        params.append('sticker_ids', stickerFilters.join(','));
-      }
+      if (localityFilters.length > 0) params.append('localities', localityFilters.join(','));
+      if (venueTypeFilters.length > 0) params.append('types', venueTypeFilters.join(','));
+      if (stickerFilters.length > 0) params.append('sticker_ids', stickerFilters.join(','));
+      if (transitKnownFlag) params.append('transit_known', 'true');
 
       const response = await fetch(`/api/venues?${params}`);
       if (!response.ok) {
@@ -620,6 +612,25 @@ export default function VenuesPage() {
     );
   };
 
+  // Debounced search (300ms)
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setCurrentPage(1);
+      setHasMore(true);
+      fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown);
+    }, 300);
+    return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
+  }, [searchQuery]);
+
+  const handleTransitKnownToggle = (checked: boolean) => {
+    setTransitKnown(checked);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, checked);
+  };
+
   if (loading && venues.length === 0) {
     return <div className="flex justify-center items-center h-64">Loading venues...</div>;
   }
@@ -630,66 +641,125 @@ export default function VenuesPage() {
         <h1 className="text-3xl font-bold mb-6">Art Venues</h1>
 
         <div className="mb-6 space-y-4">
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search venues..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-            />
-            <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
-              Search
+          <form onSubmit={handleSearch} className="flex gap-2 flex-wrap items-center">
+            {/* Filter buttons with neutral outlined style and count badges */}
+            <button
+              type="button"
+              onClick={() => setShowVenueTypePicker(true)}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: 'white',
+                color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'white')}
+            >
+              <span>Venue types</span>
+              {selectedVenueTypes.length > 0 && (
+                <span style={{ marginLeft: 8, fontSize: 12, backgroundColor: '#e5e7eb', color: '#374151', padding: '2px 6px', borderRadius: 9999 }}>{selectedVenueTypes.length}</span>
+              )}
             </button>
+
+            <button
+              type="button"
+              onClick={() => setShowLocalityPicker(true)}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: 'white',
+                color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'white')}
+            >
+              <span>Localities</span>
+              {selectedLocalities.length > 0 && (
+                <span style={{ marginLeft: 8, fontSize: 12, backgroundColor: '#e5e7eb', color: '#374151', padding: '2px 6px', borderRadius: 9999 }}>{selectedLocalities.length}</span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowStickerPicker(true)}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: 'white',
+                color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'white')}
+            >
+              <span>Stickers</span>
+              {selectedStickerFilters.length > 0 && (
+                <span style={{ marginLeft: 8, fontSize: 12, backgroundColor: '#e5e7eb', color: '#374151', padding: '2px 6px', borderRadius: 9999 }}>{selectedStickerFilters.length}</span>
+              )}
+            </button>
+
+            {/* Other filters (transit) */}
+            <button
+              type="button"
+              onClick={() => setShowOtherFilters(true)}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: 'white',
+                color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'white')}
+            >
+              <span>Other filters</span>
+              {transitKnown && (
+                <span style={{ marginLeft: 8, fontSize: 12, backgroundColor: '#e5e7eb', color: '#374151', padding: '2px 6px', borderRadius: 9999 }}>1</span>
+              )}
+            </button>
+
+            {/* Search input on the right; keeps Search button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search venues..."
+                style={{ padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: 6 }}
+              />
+              <button
+                type="submit"
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: 'white',
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 6,
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'white')}
+              >
+                Search
+              </button>
+            </div>
           </form>
-
-          <div className="flex gap-2 flex-wrap">
-            <button onClick={() => setShowLocalityPicker(true)} className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2">
-              <span>
-                {selectedLocalities.length === 0
-                  ? 'All Localities'
-                  : selectedLocalities.length === 1
-                  ? '1 Locality Selected'
-                  : `${selectedLocalities.length} Localities Selected`}
-              </span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            <button onClick={() => setShowVenueTypePicker(true)} className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2">
-              <span>
-                {selectedVenueTypes.length === 0
-                  ? 'All Types'
-                  : selectedVenueTypes.length === 1
-                  ? '1 Type Selected'
-                  : `${selectedVenueTypes.length} Types Selected`}
-              </span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            <select value={filters.public_transit} onChange={(e) => handleFilterChange('public_transit', e.target.value)} className="px-3 py-2 border border-gray-300 rounded-md">
-              <option value="">All Transit Access</option>
-              <option value="yes">Yes</option>
-              <option value="partial">Partial</option>
-              <option value="no">No</option>
-            </select>
-
-            <button onClick={() => setShowStickerPicker(true)} className="px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2">
-              <span>
-                {selectedStickerFilters.length === 0
-                  ? 'All Stickers'
-                  : selectedStickerFilters.length === 1
-                  ? '1 Sticker Selected'
-                  : `${selectedStickerFilters.length} Stickers Selected`}
-              </span>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-          </div>
         </div>
 
         {error && (
@@ -832,6 +902,14 @@ export default function VenuesPage() {
           onToggleSticker={handleStickerFilterToggle}
           onClear={handleClearStickerFilters}
           onClose={() => setShowStickerPicker(false)}
+        />
+      )}
+
+      {showOtherFilters && (
+        <OtherFiltersModal
+          transitKnown={transitKnown}
+          onToggleTransitKnown={(value: boolean) => handleTransitKnownToggle(value)}
+          onClose={() => setShowOtherFilters(false)}
         />
       )}
 

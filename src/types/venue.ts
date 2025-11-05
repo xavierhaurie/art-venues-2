@@ -52,6 +52,7 @@ export interface VenueListParams {
   localities?: string[]; // filter by multiple localities
   types?: string[]; // filter by multiple venue types
   public_transit?: 'yes' | 'partial' | 'no';
+  transit_known?: boolean; // filter where public_transit is known (not null)
   has_open_call?: boolean;
   sort?: 'name' | 'locality';
   sort_order?: 'asc' | 'desc';

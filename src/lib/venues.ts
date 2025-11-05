@@ -22,6 +22,7 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     sort = 'name',
     sort_order = 'asc',
     sticker_ids,
+    transit_known,
   } = params;
 
   const offset = (page - 1) * page_size;
@@ -76,7 +77,9 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     if (public_transit) {
       query = query.eq('public_transit', public_transit);
     }
-
+    if (transit_known) {
+      query = query.not('public_transit', 'is', null);
+    }
     if (has_open_call) {
       query = query.eq('id', '00000000-0000-0000-0000-000000000000');
     }
@@ -134,7 +137,9 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
   if (public_transit) {
     query = query.eq('public_transit', public_transit);
   }
-
+  if (transit_known) {
+    query = query.not('public_transit', 'is', null);
+  }
   if (has_open_call) {
     query = query.eq('id', '00000000-0000-0000-0000-000000000000');
   }
@@ -394,4 +399,3 @@ export async function getVenueByUrl(normalized_url: string): Promise<Venue | nul
 
   return data as Venue;
 }
-

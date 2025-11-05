@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     const types = types_param ? types_param.split(',') : undefined;
     const public_transit = searchParams.get('public_transit') as 'yes' | 'partial' | 'no' | undefined;
     const has_open_call = searchParams.get('has_open_call') === 'true';
+    const transit_known = searchParams.get('transit_known') === 'true';
 
     // Parse sticker filter parameter
     const sticker_ids_param = searchParams.get('sticker_ids');
@@ -50,6 +51,7 @@ export async function GET(request: NextRequest) {
       sort_order,
       q,
       sticker_ids,
+      transit_known,
     };
 
     // Use search function if query provided, otherwise use regular listing
