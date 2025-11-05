@@ -109,10 +109,8 @@ export default function VenuesPage() {
 
   const loadingMore = useRef(false);
 
-  // Scrollbar sync refs
-  const topScrollRef = useRef<HTMLDivElement>(null);
+  // Scrollbar refs (only main table scrollbar retained)
   const mainScrollRef = useRef<HTMLDivElement>(null);
-  const bottomScrollRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
 
   // Full venue data for modal (includes contact info)
@@ -293,39 +291,6 @@ export default function VenuesPage() {
       }
     };
   }, [hasMore, loading, currentPage, searchQuery, filters]);
-
-  // Sync scrollbars
-  useEffect(() => {
-    const topScroll = topScrollRef.current;
-    const mainScroll = mainScrollRef.current;
-    const bottomScroll = bottomScrollRef.current;
-
-    if (!topScroll || !mainScroll || !bottomScroll) return;
-
-    const syncScroll = (source: HTMLDivElement, targets: HTMLDivElement[]) => {
-      return () => {
-        targets.forEach(target => {
-          if (target !== source) {
-            target.scrollLeft = source.scrollLeft;
-          }
-        });
-      };
-    };
-
-    const topListener = syncScroll(topScroll, [mainScroll, bottomScroll]);
-    const mainListener = syncScroll(mainScroll, [topScroll, bottomScroll]);
-    const bottomListener = syncScroll(bottomScroll, [topScroll, mainScroll]);
-
-    topScroll.addEventListener('scroll', topListener);
-    mainScroll.addEventListener('scroll', mainListener);
-    bottomScroll.addEventListener('scroll', bottomListener);
-
-    return () => {
-      topScroll.removeEventListener('scroll', topListener);
-      mainScroll.removeEventListener('scroll', mainListener);
-      bottomScroll.removeEventListener('scroll', bottomListener);
-    };
-  }, [venues]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -631,22 +596,63 @@ export default function VenuesPage() {
     fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, checked);
   };
 
+  const handleClearAll = () => {
+    const emptyFilters = { locality: '', type: '', public_transit: '' };
+    setSelectedLocalities([]);
+    setSelectedVenueTypes([]);
+    setSelectedStickerFilters([]);
+    setTransitKnown(false);
+    setFilters(emptyFilters);
+    setSearchQuery('');
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, '', emptyFilters, [], [], [], false, false);
+  };
+
+  const [regionNames, setRegionNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadRegion = async () => {
+      try {
+        const resp = await fetch('/api/regions');
+        if (resp.ok) {
+          const data = await resp.json();
+          const names: string[] = (data?.regions || []).map((r: any) => r.name).filter(Boolean);
+          setRegionNames(names);
+        }
+      } catch (e) {
+        console.warn('Failed to load region info', e);
+      }
+    };
+    loadRegion();
+  }, []);
+
+  const formatRegionsTitle = (names: string[]): string => {
+    if (!names || names.length === 0) return 'Art Venues';
+    if (names.length === 1) return `Art Venues in the ${names[0]}`;
+    if (names.length === 2) return `Art Venues in the ${names[0]} and the ${names[1]}`;
+    const allButLast = names.slice(0, -1).map(n => `the ${n}`).join(', ');
+    const last = names[names.length - 1];
+    return `Art Venues in ${allButLast} and the ${last}`;
+  };
+
   if (loading && venues.length === 0) {
     return <div className="flex justify-center items-center h-64">Loading venues...</div>;
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 font-sans" style={{ margin: '2rem' }}>
+    <div className="container mx-auto px-4 py-8 font-sans" style={{ margin: '2rem', overflowX: 'hidden' }}>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-6">Art Venues</h1>
+        <h1 className="text-3xl font-bold mb-6">{formatRegionsTitle(regionNames)}</h1>
 
         <div className="mb-6 space-y-4">
-          <form onSubmit={handleSearch} className="flex gap-2 flex-wrap items-center">
+          <form onSubmit={handleSearch} className="flex gap-2 flex-wrap items-center" style={{ margin: 5 }}>
             {/* Filter buttons with neutral outlined style and count badges */}
             <button
               type="button"
               onClick={() => setShowVenueTypePicker(true)}
               style={{
+                margin: 5,
                 padding: '0.5rem 1rem',
                 backgroundColor: 'white',
                 color: '#374151',
@@ -669,6 +675,7 @@ export default function VenuesPage() {
               type="button"
               onClick={() => setShowLocalityPicker(true)}
               style={{
+                margin: 5,
                 padding: '0.5rem 1rem',
                 backgroundColor: 'white',
                 color: '#374151',
@@ -691,6 +698,7 @@ export default function VenuesPage() {
               type="button"
               onClick={() => setShowStickerPicker(true)}
               style={{
+                margin: 5,
                 padding: '0.5rem 1rem',
                 backgroundColor: 'white',
                 color: '#374151',
@@ -714,6 +722,7 @@ export default function VenuesPage() {
               type="button"
               onClick={() => setShowOtherFilters(true)}
               style={{
+                margin: 5,
                 padding: '0.5rem 1rem',
                 backgroundColor: 'white',
                 color: '#374151',
@@ -732,33 +741,54 @@ export default function VenuesPage() {
               )}
             </button>
 
-            {/* Search input on the right; keeps Search button */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search venues..."
-                style={{ padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: 6 }}
-              />
-              <button
-                type="submit"
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: 'white',
-                  color: '#374151',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 6,
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'white')}
-              >
-                Search
-              </button>
-            </div>
+            {/* Search placed immediately after filter buttons */}
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search venues..."
+              style={{ padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: 6 }}
+            />
+            <button
+              type="submit"
+              style={{
+                margin: 5,
+                padding: '0.5rem 1rem',
+                backgroundColor: 'white',
+                color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'white')}
+            >
+              Search
+            </button>
+
+            {/* Clear all on far right */}
+            <button
+              type="button"
+              onClick={handleClearAll}
+              style={{
+                marginLeft: 'auto',
+                margin: 5,
+                padding: '0.5rem 1rem',
+                backgroundColor: 'white',
+                color: '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'white')}
+            >
+              Clear all
+            </button>
           </form>
         </div>
 
@@ -766,34 +796,36 @@ export default function VenuesPage() {
           <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md">{error}</div>
         )}
 
-        <div ref={topScrollRef} className="overflow-x-auto border border-gray-300 rounded-t-lg" style={{ overflowY: 'hidden' }}>
-          <div style={{ width: '2000px', height: '1px' }} />
-        </div>
-
-        <div ref={mainScrollRef} className="overflow-x-auto border-l border-r border-b border-gray-300">
-          <table className="w-full text-sm border-collapse">
-            <thead className="bg-gray-100 border-b border-gray-300">
-              <tr>
-                <th className="text-left font-semibold" style={{ padding: '5px', minWidth: '300px', maxWidth: '400px', borderRight: '1px solid #e0e0e0' }}>Name</th>
-                <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Stickers, Notes & Artwork</th>
-                <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Type</th>
-                <th className="text-left font-semibold" style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>Locality</th>
-                <th className="text-left font-semibold" style={{ padding: '5px', maxWidth: '250px', borderRight: '1px solid #e0e0e0' }}>Artist Summary</th>
-                <th className="text-left font-semibold" style={{ padding: '5px', maxWidth: '250px', borderRight: '1px solid #e0e0e0' }}>Visitor Summary</th>
-                <th className="text-left font-semibold" style={{ padding: '5px' }}>Public Transit</th>
-              </tr>
-            </thead>
-            <tbody>
-              {venues.map((venue, index) => (
-                <tr key={venue.id} style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#f2f3f5' }}>
+        {/* Padded wrapper so table width does not exceed available width minus 20px on each side */}
+        <div style={{ paddingLeft: 10, paddingRight: 50 }}>
+          <div
+            ref={mainScrollRef}
+            className="overflow-x-auto"
+            style={{ border: '1px solid #e5e7eb', borderRadius: 8 }}
+          >
+            <table className="w-full text-sm border-collapse">
+              <thead className="bg-gray-300 border-b border-gray-200" style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <tr>
+                  <th className="text-left font-semibold" style={{ padding: '10px', minWidth: '300px', maxWidth: '400px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Name</th>
+                  <th className="text-left font-semibold" style={{ padding: '10px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Stickers, Notes & Artwork</th>
+                  <th className="text-left font-semibold" style={{ padding: '10px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Type</th>
+                  <th className="text-left font-semibold" style={{ padding: '10px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Locality</th>
+                  <th className="text-left font-semibold" style={{ padding: '10px', maxWidth: '250px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Artist Summary</th>
+                  <th className="text-left font-semibold" style={{ padding: '10px', maxWidth: '250px', borderRight: '1px solid #e0e0e0', backgroundColor: '#d1d5db' }}>Visitor Summary</th>
+                  <th className="text-left font-semibold" style={{ padding: '10px', backgroundColor: '#d1d5db' }}>Public Transit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {venues.map((venue, index) => (
+                  <tr key={venue.id} style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#f2f3f5' }}>
                   {/* Name first */}
-                  <td className="text-blue-600 hover:text-blue-800 cursor-pointer" style={{ padding: '5px', minWidth: '300px', maxWidth: '400px', fontWeight: 'bold', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
+                  <td className="text-blue-600 hover:text-blue-800 cursor-pointer" style={{ padding: '10px', minWidth: '300px', maxWidth: '400px', fontWeight: 'bold', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
                     <div style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none', cursor: 'pointer' }} onClick={() => handleVenueClick(venue.id)}>
                       {venue.name}
                     </div>
                   </td>
                   {/* Stickers, Notes & Artwork next */}
-                  <td style={{ padding: '5px', minWidth: '220px', maxWidth: '500px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
+                  <td style={{ padding: '10px', minWidth: '220px', maxWidth: '500px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
                     <div
                       style={{ display: 'flex', flexDirection: 'column', gap: '4px', cursor: 'pointer' }}
                       onMouseEnter={(e) => {
@@ -817,9 +849,9 @@ export default function VenuesPage() {
                       )}
                     </div>
                   </td>
-                  <td style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>{venue.type}</td>
-                  <td style={{ padding: '5px', borderRight: '1px solid #e0e0e0' }}>{venue.locality}</td>
-                  <td style={{ padding: '5px', maxWidth: '250px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
+                  <td style={{ padding: '10px', borderRight: '1px solid #e0e0e0' }}>{venue.type}</td>
+                  <td style={{ padding: '10px', borderRight: '1px solid #e0e0e0' }}>{venue.locality}</td>
+                  <td style={{ padding: '10px', maxWidth: '250px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
                     <div
                       className="truncate"
                       style={{ cursor: 'pointer' }}
@@ -831,7 +863,7 @@ export default function VenuesPage() {
                       {venue.artist_summary}
                     </div>
                   </td>
-                  <td style={{ padding: '5px', maxWidth: '250px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
+                  <td style={{ padding: '10px', maxWidth: '250px', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
                     <div
                       className="truncate"
                       style={{ cursor: 'pointer' }}
@@ -843,15 +875,12 @@ export default function VenuesPage() {
                       {venue.visitor_summary}
                     </div>
                   </td>
-                  <td style={{ padding: '5px' }}>{venue.public_transit}</td>
+                  <td style={{ padding: '10px' }}>{venue.public_transit}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div ref={bottomScrollRef} className="overflow-x-auto border-l border-r border-b border-gray-300 rounded-b-lg" style={{ overflowY: 'hidden' }}>
-          <div style={{ width: '2000px', height: '1px' }} />
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div ref={observerTarget} className="h-10 flex items-center justify-center mt-4">

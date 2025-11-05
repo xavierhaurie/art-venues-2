@@ -29,6 +29,7 @@ export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 1.5rem', borderBottom: '1px solid #e5e7eb' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>Other filters</h2>
             <button
+              type="button"
               onClick={onClose}
               style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '2rem', fontWeight: 'bold', cursor: 'pointer', padding: 0, lineHeight: 1 }}
               aria-label="Close"
@@ -60,7 +61,7 @@ export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, 
                   if (!transitKnown) e.currentTarget.style.backgroundColor = '#e5e7eb';
                 }}
               >
-                Know to be accessible by public transit
+                Known to be accessible by public transit
               </div>
             </div>
           </div>
@@ -68,6 +69,7 @@ export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, 
           {/* Footer */}
           <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem' }}>
             <button
+              type="button"
               onClick={() => onToggleTransitKnown(false)}
               style={{ padding: '0.5rem 1rem', backgroundColor: '#e5e7eb', color: '#374151', border: 'none', borderRadius: 6, fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#d1d5db')}
@@ -76,6 +78,7 @@ export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, 
               Clear
             </button>
             <button
+              type="button"
               onClick={onClose}
               style={{ padding: '0.5rem 1rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: 6, fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2563eb')}
@@ -89,4 +92,3 @@ export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, 
     </>
   );
 }
-

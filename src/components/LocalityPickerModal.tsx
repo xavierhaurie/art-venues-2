@@ -77,6 +77,7 @@ export default function LocalityPickerModal({
           }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0 }}>Select Localities</h2>
             <button
+              type="button"
               onClick={onClose}
               style={{
                 background: 'none',
@@ -150,6 +151,7 @@ export default function LocalityPickerModal({
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button
+                type="button"
                 onClick={onClear}
                 style={{
                   padding: '0.5rem 1rem',
@@ -168,6 +170,7 @@ export default function LocalityPickerModal({
                 Clear
               </button>
               <button
+                type="button"
                 onClick={onClose}
                 style={{
                   padding: '0.5rem 1rem',
@@ -192,4 +195,3 @@ export default function LocalityPickerModal({
     </>
   );
 }
-
