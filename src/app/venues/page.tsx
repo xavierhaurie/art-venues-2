@@ -71,6 +71,7 @@ export default function VenuesPage() {
   });
   const [transitKnown, setTransitKnown] = useState(false);
   const [imagesPresent, setImagesPresent] = useState(false);
+  const [notesPresent, setNotesPresent] = useState(false);
   const [showOtherFilters, setShowOtherFilters] = useState(false);
 
   // Locality picker state
@@ -127,7 +128,8 @@ export default function VenuesPage() {
     venueTypeFilters = selectedVenueTypes,
     append = false,
     transitKnownFlag = transitKnown,
-    imagesPresentFlag = imagesPresent
+    imagesPresentFlag = imagesPresent,
+    notesPresentFlag = notesPresent
   ) => {
     try {
       if (!append) {
@@ -144,6 +146,7 @@ export default function VenuesPage() {
       if (stickerFilters.length > 0) params.append('sticker_ids', stickerFilters.join(','));
       if (transitKnownFlag) params.append('transit_known', 'true');
       if (imagesPresentFlag) params.append('images_present', 'true');
+      if (notesPresentFlag) params.append('notes_present', 'true');
 
       const response = await fetch(`/api/venues?${params}`);
       if (!response.ok) {
@@ -281,7 +284,7 @@ export default function VenuesPage() {
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading && !loadingMore.current) {
           loadingMore.current = true;
-          fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, true, transitKnown, imagesPresent);
+          fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, true, transitKnown, imagesPresent, notesPresent);
         }
       },
       { threshold: 0.1 }
@@ -303,7 +306,7 @@ export default function VenuesPage() {
     e.preventDefault();
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
   };
 
   const handleFilterChange = (key: string, value: string) => {
@@ -311,7 +314,7 @@ export default function VenuesPage() {
     setFilters(newFilters);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, newFilters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent);
+    fetchVenues(1, searchQuery, newFilters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
   };
 
   const handleStickerFilterToggle = (stickerMeaningId: string) => {
@@ -322,7 +325,7 @@ export default function VenuesPage() {
     setSelectedStickerFilters(newSelectedFilters);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, newSelectedFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent);
+    fetchVenues(1, searchQuery, filters, newSelectedFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
   };
 
   const handleLocalityToggle = (localityName: string) => {
@@ -333,14 +336,14 @@ export default function VenuesPage() {
     setSelectedLocalities(newSelectedLocalities);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, newSelectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, newSelectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
   };
 
   const handleClearLocalities = () => {
     setSelectedLocalities([]);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, [], selectedVenueTypes, false, transitKnown, imagesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, [], selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
   };
 
   const handleVenueTypeToggle = (venueTypeName: string) => {
@@ -351,21 +354,21 @@ export default function VenuesPage() {
     setSelectedVenueTypes(newSelectedVenueTypes);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, newSelectedVenueTypes, false, transitKnown, imagesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, newSelectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
   };
 
   const handleClearVenueTypes = () => {
     setSelectedVenueTypes([]);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, [], false, transitKnown, imagesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, [], false, transitKnown, imagesPresent, notesPresent);
   };
 
   const handleClearStickerFilters = () => {
     setSelectedStickerFilters([]);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, [], selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent);
+    fetchVenues(1, searchQuery, filters, [], selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
   };
 
   const handleVenueClick = (venueId: string) => {
@@ -588,7 +591,7 @@ export default function VenuesPage() {
     searchDebounceRef.current = setTimeout(() => {
       setCurrentPage(1);
       setHasMore(true);
-      fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent);
+      fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
     }, 300);
     return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
   }, [searchQuery]);
@@ -597,7 +600,7 @@ export default function VenuesPage() {
     setTransitKnown(checked);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, checked, imagesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, checked, imagesPresent, notesPresent);
   };
 
   const handleImagesPresentToggle = (checked: boolean) => {
@@ -605,7 +608,14 @@ export default function VenuesPage() {
     setCurrentPage(1);
     setHasMore(true);
     // Use the explicit checked value to avoid stale state inversion
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, checked);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, checked, notesPresent);
+  };
+
+  const handleNotesPresentToggle = (checked: boolean) => {
+    setNotesPresent(checked);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, checked);
   };
 
   const handleClearAll = () => {
@@ -614,11 +624,13 @@ export default function VenuesPage() {
     setSelectedVenueTypes([]);
     setSelectedStickerFilters([]);
     setTransitKnown(false);
+    setImagesPresent(false);
+    setNotesPresent(false);
     setFilters(emptyFilters);
     setSearchQuery('');
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, '', emptyFilters, [], [], [], false, false, false);
+    fetchVenues(1, '', emptyFilters, [], [], [], false, false, false, false);
   };
 
   const [regionNames, setRegionNames] = useState<string[]>([]);
@@ -990,12 +1002,14 @@ export default function VenuesPage() {
 
       {showOtherFilters && (
         <OtherFiltersModal
-          transitKnown={transitKnown}
-          onToggleTransitKnown={(value: boolean) => handleTransitKnownToggle(value)}
-          imagesPresent={imagesPresent}
-          onToggleImagesPresent={(value: boolean) => handleImagesPresentToggle(value)}
-          onClose={() => setShowOtherFilters(false)}
-        />
+           transitKnown={transitKnown}
+           onToggleTransitKnown={(value: boolean) => handleTransitKnownToggle(value)}
+           imagesPresent={imagesPresent}
+           onToggleImagesPresent={(value: boolean) => handleImagesPresentToggle(value)}
+           notesPresent={notesPresent}
+           onToggleNotesPresent={(value: boolean) => handleNotesPresentToggle(value)}
+           onClose={() => setShowOtherFilters(false)}
+         />
       )}
 
       {selectedVenueId && selectedVenue && (

@@ -57,6 +57,7 @@ export interface VenueListParams {
   public_transit?: 'yes' | 'partial' | 'no';
   transit_known?: boolean; // filter where public_transit is known (not null)
   images_present?: boolean; // filter where the current user has uploaded artwork images for the venue
+  notes_present?: boolean; // filter where the current user has a note for the venue
   has_open_call?: boolean;
   sort?: 'name' | 'locality';
   sort_order?: 'asc' | 'desc';

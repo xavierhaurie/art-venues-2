@@ -24,6 +24,7 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     sticker_ids,
     transit_known,
     images_present,
+    notes_present,
   } = params;
 
   const offset = (page - 1) * page_size;
@@ -56,16 +57,13 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
       };
     }
 
+    const noteJoinSpec = notes_present && userId ? '!inner' : '';
+    const imageJoinSpec = images_present && userId ? '!inner' : '!left';
     // Build the select with LEFT JOIN to notes and sticker assignments
-    const selectClause = images_present && userId
-      ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
-         note(id, body, artist_user_id),
+    const selectClause = `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at,
+         note:note${noteJoinSpec}(id, body, artist_user_id),
          sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
-         venue_image:venue_image!inner(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
-      : `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
-         note(id, body, artist_user_id),
-         sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
-         venue_image:venue_image!left(id, file_path, file_path_thumb, url, created_at, artist_user_id)`;
+         venue_image:venue_image${imageJoinSpec}(id, file_path, file_path_thumb, url, created_at, artist_user_id)`;
 
     let query = supabase
       .from('venue')
@@ -94,6 +92,9 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     // If images_present requested, filter to venues that have images for this user (related-table filter)
     if (images_present && userId) {
       query = query.eq('venue_image.artist_user_id', userId);
+    }
+    if (notes_present && userId) {
+      query = query.eq('note.artist_user_id', userId);
     }
 
     // Apply sorting
@@ -129,16 +130,13 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
 
   // Original logic when no sticker filtering
   // Build the select with LEFT JOIN to notes and sticker assignments
+  const noteJoin = notes_present && userId ? '!inner' : '';
+  const imageJoin = images_present && userId ? '!inner' : '!left';
   const selectClause = userId
-    ? (images_present
-        ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
-           note(id, body, artist_user_id),
-           sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
-           venue_image:venue_image!inner(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
-        : `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
-           note(id, body, artist_user_id),
-           sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
-           venue_image:venue_image!left(id, file_path, file_path_thumb, url, created_at, artist_user_id)`)
+    ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at,
+       note:note${noteJoin}(id, body, artist_user_id),
+       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
+       venue_image:venue_image${imageJoin}(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
     : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at';
 
   let query = supabase
@@ -167,6 +165,9 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
   // Filter by images_present for the current user using related-table filter
   if (images_present && userId) {
     query = query.eq('venue_image.artist_user_id', userId);
+  }
+  if (notes_present && userId) {
+    query = query.eq('note.artist_user_id', userId);
   }
 
   // Apply sorting
@@ -308,6 +309,7 @@ export async function searchVenues(
     sort = 'name',
     sort_order = 'asc',
     images_present,
+    notes_present,
   } = params;
 
   const sanitizedQuery = query.trim().replace(/[^\w\s-]/g, '');
@@ -317,16 +319,13 @@ export async function searchVenues(
 
   const offset = (page - 1) * page_size;
 
+  const noteJoinS = notes_present && userId ? '!inner' : '';
+  const imageJoinS = images_present && userId ? '!inner' : '!left';
   const selectClause = userId
-    ? (images_present
-        ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
-           note(id, body, artist_user_id),
-           sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
-           venue_image:venue_image!inner(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
-        : `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
-           note(id, body, artist_user_id),
-           sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
-           venue_image:venue_image!left(id, file_path, file_path_thumb, url, created_at, artist_user_id)`)
+    ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at,
+       note:note${noteJoinS}(id, body, artist_user_id),
+       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
+       venue_image:venue_image${imageJoinS}(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
     : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at';
 
   let searchQuery = supabase
@@ -340,6 +339,9 @@ export async function searchVenues(
   if (images_present && userId) {
     // Limit to venues that have images for this user via related-table filter
     searchQuery = searchQuery.eq('venue_image.artist_user_id', userId);
+  }
+  if (notes_present && userId) {
+    searchQuery = searchQuery.eq('note.artist_user_id', userId);
   }
 
   const sortColumn = sort === 'locality' ? 'locality' : 'name';

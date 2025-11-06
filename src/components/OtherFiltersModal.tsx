@@ -7,10 +7,12 @@ interface OtherFiltersModalProps {
   onToggleTransitKnown: (value: boolean) => void;
   imagesPresent?: boolean;
   onToggleImagesPresent?: (value: boolean) => void;
+  notesPresent?: boolean;
+  onToggleNotesPresent?: (value: boolean) => void;
   onClose: () => void;
 }
 
-export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, imagesPresent = false, onToggleImagesPresent, onClose }: OtherFiltersModalProps) {
+export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, imagesPresent = false, onToggleImagesPresent, notesPresent = false, onToggleNotesPresent, onClose }: OtherFiltersModalProps) {
   return (
     <>
       {/* Backdrop */}
@@ -87,6 +89,29 @@ export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, 
                 }}
               >
                 Venue has artwork images
+              </div>
+
+              <div
+                onClick={() => onToggleNotesPresent && onToggleNotesPresent(!notesPresent)}
+                style={{
+                  backgroundColor: notesPresent ? '#fed7aa' : '#e5e7eb',
+                  fontSize: '14px',
+                  padding: '10px',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  border: '2px solid transparent',
+                  transition: 'all 0.2s',
+                  userSelect: 'none'
+                }}
+                onMouseEnter={(e) => {
+                  if (!notesPresent) e.currentTarget.style.backgroundColor = '#d1d5db';
+                }}
+                onMouseLeave={(e) => {
+                  if (!notesPresent) e.currentTarget.style.backgroundColor = '#e5e7eb';
+                }}
+              >
+                Venue has notes
               </div>
             </div>
           </div>
