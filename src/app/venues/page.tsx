@@ -70,6 +70,7 @@ export default function VenuesPage() {
     public_transit: '',
   });
   const [transitKnown, setTransitKnown] = useState(false);
+  const [imagesPresent, setImagesPresent] = useState(false);
   const [showOtherFilters, setShowOtherFilters] = useState(false);
 
   // Locality picker state
@@ -117,7 +118,17 @@ export default function VenuesPage() {
 
   const { selectedVenueId, openModal, closeModal } = useVenueStore();
 
-  const fetchVenues = async (page = 1, search = '', filterParams = filters, stickerFilters = selectedStickerFilters, localityFilters = selectedLocalities, venueTypeFilters = selectedVenueTypes, append = false, transitKnownFlag = transitKnown) => {
+  const fetchVenues = async (
+    page = 1,
+    search = '',
+    filterParams = filters,
+    stickerFilters = selectedStickerFilters,
+    localityFilters = selectedLocalities,
+    venueTypeFilters = selectedVenueTypes,
+    append = false,
+    transitKnownFlag = transitKnown,
+    imagesPresentFlag = imagesPresent
+  ) => {
     try {
       if (!append) {
         setLoading(true);
@@ -132,6 +143,7 @@ export default function VenuesPage() {
       if (venueTypeFilters.length > 0) params.append('types', venueTypeFilters.join(','));
       if (stickerFilters.length > 0) params.append('sticker_ids', stickerFilters.join(','));
       if (transitKnownFlag) params.append('transit_known', 'true');
+      if (imagesPresentFlag) params.append('images_present', 'true');
 
       const response = await fetch(`/api/venues?${params}`);
       if (!response.ok) {
@@ -269,7 +281,7 @@ export default function VenuesPage() {
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading && !loadingMore.current) {
           loadingMore.current = true;
-          fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, true);
+          fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, true, transitKnown, imagesPresent);
         }
       },
       { threshold: 0.1 }
@@ -291,7 +303,7 @@ export default function VenuesPage() {
     e.preventDefault();
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent);
   };
 
   const handleFilterChange = (key: string, value: string) => {
@@ -299,7 +311,7 @@ export default function VenuesPage() {
     setFilters(newFilters);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, newFilters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false);
+    fetchVenues(1, searchQuery, newFilters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent);
   };
 
   const handleStickerFilterToggle = (stickerMeaningId: string) => {
@@ -310,7 +322,7 @@ export default function VenuesPage() {
     setSelectedStickerFilters(newSelectedFilters);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, newSelectedFilters, selectedLocalities, selectedVenueTypes, false);
+    fetchVenues(1, searchQuery, filters, newSelectedFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent);
   };
 
   const handleLocalityToggle = (localityName: string) => {
@@ -321,14 +333,14 @@ export default function VenuesPage() {
     setSelectedLocalities(newSelectedLocalities);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, newSelectedLocalities, selectedVenueTypes, false);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, newSelectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent);
   };
 
   const handleClearLocalities = () => {
     setSelectedLocalities([]);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, [], selectedVenueTypes, false);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, [], selectedVenueTypes, false, transitKnown, imagesPresent);
   };
 
   const handleVenueTypeToggle = (venueTypeName: string) => {
@@ -339,21 +351,21 @@ export default function VenuesPage() {
     setSelectedVenueTypes(newSelectedVenueTypes);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, newSelectedVenueTypes, false);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, newSelectedVenueTypes, false, transitKnown, imagesPresent);
   };
 
   const handleClearVenueTypes = () => {
     setSelectedVenueTypes([]);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, [], false);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, [], false, transitKnown, imagesPresent);
   };
 
   const handleClearStickerFilters = () => {
     setSelectedStickerFilters([]);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, [], selectedLocalities, selectedVenueTypes, false);
+    fetchVenues(1, searchQuery, filters, [], selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent);
   };
 
   const handleVenueClick = (venueId: string) => {
@@ -576,7 +588,7 @@ export default function VenuesPage() {
     searchDebounceRef.current = setTimeout(() => {
       setCurrentPage(1);
       setHasMore(true);
-      fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown);
+      fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent);
     }, 300);
     return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
   }, [searchQuery]);
@@ -585,7 +597,15 @@ export default function VenuesPage() {
     setTransitKnown(checked);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, checked);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, checked, imagesPresent);
+  };
+
+  const handleImagesPresentToggle = (checked: boolean) => {
+    setImagesPresent(checked);
+    setCurrentPage(1);
+    setHasMore(true);
+    // Use the explicit checked value to avoid stale state inversion
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, checked);
   };
 
   const handleClearAll = () => {
@@ -598,7 +618,7 @@ export default function VenuesPage() {
     setSearchQuery('');
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, '', emptyFilters, [], [], [], false, false);
+    fetchVenues(1, '', emptyFilters, [], [], [], false, false, false);
   };
 
   const [regionNames, setRegionNames] = useState<string[]>([]);
@@ -792,9 +812,25 @@ export default function VenuesPage() {
         <div style={{ paddingLeft: 10, paddingRight: 50 }}>
           <div
             ref={mainScrollRef}
-            className="overflow-x-auto"
+            className="overflow-x-auto relative"
             style={{ border: '1px solid #e5e7eb', borderRadius: 8 }}
           >
+            {/* Overlay spinner while refreshing table data (not the very first load, which has its own screen-level message) */}
+            {loading && venues.length > 0 && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-10" style={{ backgroundColor: 'rgba(255,255,255,0.6)' }}>
+                <svg width="36" height="36" viewBox="0 0 38 38" stroke="#3b82f6" aria-label="Loading">
+                  <g fill="none" fillRule="evenodd">
+                    <g transform="translate(1 1)" strokeWidth="3">
+                      <circle strokeOpacity=".2" cx="18" cy="18" r="18" />
+                      <path d="M36 18c0-9.94-8.06-18-18-18">
+                        <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="1s" repeatCount="indefinite" />
+                      </path>
+                    </g>
+                  </g>
+                </svg>
+                <div style={{ marginTop: 8, color: '#374151', fontSize: 13 }}>Loading…</div>
+              </div>
+            )}
             <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '20%' }} />
@@ -883,12 +919,26 @@ export default function VenuesPage() {
                  </tr>
                ))}
                </tbody>
-            </table>
-          </div>
+             </table>
+           </div>
         </div>
 
         <div ref={observerTarget} className="h-10 flex items-center justify-center mt-4">
-          {loadingMore.current && hasMore && <div className="text-gray-500 text-sm">Loading more venues...</div>}
+          {loadingMore.current && hasMore && (
+            <div className="text-gray-500 text-sm flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 38 38" stroke="#6b7280" aria-label="Loading more">
+                <g fill="none" fillRule="evenodd">
+                  <g transform="translate(1 1)" strokeWidth="3">
+                    <circle strokeOpacity=".2" cx="18" cy="18" r="18" />
+                    <path d="M36 18c0-9.94-8.06-18-18-18">
+                      <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="1s" repeatCount="indefinite" />
+                    </path>
+                  </g>
+                </g>
+              </svg>
+              Loading more venues...
+            </div>
+          )}
           {!hasMore && venues.length > 0 && <div className="text-gray-400 text-sm">No more venues to load</div>}
         </div>
       </div>
@@ -942,6 +992,8 @@ export default function VenuesPage() {
         <OtherFiltersModal
           transitKnown={transitKnown}
           onToggleTransitKnown={(value: boolean) => handleTransitKnownToggle(value)}
+          imagesPresent={imagesPresent}
+          onToggleImagesPresent={(value: boolean) => handleImagesPresentToggle(value)}
           onClose={() => setShowOtherFilters(false)}
         />
       )}

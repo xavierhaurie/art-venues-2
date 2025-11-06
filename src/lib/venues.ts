@@ -23,6 +23,7 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     sort_order = 'asc',
     sticker_ids,
     transit_known,
+    images_present,
   } = params;
 
   const offset = (page - 1) * page_size;
@@ -56,10 +57,15 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     }
 
     // Build the select with LEFT JOIN to notes and sticker assignments
-    const selectClause = `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
-       note(id, body, artist_user_id),
-       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
-       venue_image:venue_image!left(id, file_path, file_path_thumb, url, created_at, artist_user_id)`;
+    const selectClause = images_present && userId
+      ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
+         note(id, body, artist_user_id),
+         sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
+         venue_image:venue_image!inner(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
+      : `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
+         note(id, body, artist_user_id),
+         sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
+         venue_image:venue_image!left(id, file_path, file_path_thumb, url, created_at, artist_user_id)`;
 
     let query = supabase
       .from('venue')
@@ -83,6 +89,11 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     }
     if (has_open_call) {
       query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+    }
+
+    // If images_present requested, filter to venues that have images for this user (related-table filter)
+    if (images_present && userId) {
+      query = query.eq('venue_image.artist_user_id', userId);
     }
 
     // Apply sorting
@@ -119,10 +130,15 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
   // Original logic when no sticker filtering
   // Build the select with LEFT JOIN to notes and sticker assignments
   const selectClause = userId
-    ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
-       note(id, body, artist_user_id),
-       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
-       venue_image:venue_image!left(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
+    ? (images_present
+        ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
+           note(id, body, artist_user_id),
+           sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
+           venue_image:venue_image!inner(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
+        : `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
+           note(id, body, artist_user_id),
+           sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
+           venue_image:venue_image!left(id, file_path, file_path_thumb, url, created_at, artist_user_id)`)
     : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at';
 
   let query = supabase
@@ -146,6 +162,11 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
   }
   if (has_open_call) {
     query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+  }
+
+  // Filter by images_present for the current user using related-table filter
+  if (images_present && userId) {
+    query = query.eq('venue_image.artist_user_id', userId);
   }
 
   // Apply sorting
@@ -281,11 +302,12 @@ export async function searchVenues(
   const {
     page = 1,
     page_size = 25,
-    locality,
-    type,
+    localities,
+    types,
     public_transit,
     sort = 'name',
     sort_order = 'asc',
+    images_present,
   } = params;
 
   const sanitizedQuery = query.trim().replace(/[^\w\s-]/g, '');
@@ -296,10 +318,15 @@ export async function searchVenues(
   const offset = (page - 1) * page_size;
 
   const selectClause = userId
-    ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
-       note(id, body, artist_user_id),
-       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
-       venue_image:venue_image!left(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
+    ? (images_present
+        ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
+           note(id, body, artist_user_id),
+           sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
+           venue_image:venue_image!inner(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
+        : `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
+           note(id, body, artist_user_id),
+           sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
+           venue_image:venue_image!left(id, file_path, file_path_thumb, url, created_at, artist_user_id)`)
     : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at';
 
   let searchQuery = supabase
@@ -307,9 +334,13 @@ export async function searchVenues(
     .select(selectClause, { count: 'exact' })
     .textSearch('search', sanitizedQuery, { type: 'websearch', config: 'english' });
 
-  if (locality) searchQuery = searchQuery.eq('locality', locality);
-  if (type) searchQuery = searchQuery.eq('type', type);
+  if (localities && localities.length > 0) searchQuery = searchQuery.in('locality', localities);
+  if (types && types.length > 0) searchQuery = searchQuery.in('type', types);
   if (public_transit) searchQuery = searchQuery.eq('public_transit', public_transit);
+  if (images_present && userId) {
+    // Limit to venues that have images for this user via related-table filter
+    searchQuery = searchQuery.eq('venue_image.artist_user_id', userId);
+  }
 
   const sortColumn = sort === 'locality' ? 'locality' : 'name';
   searchQuery = searchQuery.order(sortColumn, { ascending: sort_order === 'asc' });
@@ -321,13 +352,20 @@ export async function searchVenues(
   }
 
   const venues = await transformVenueDataWithImages(data || [], userId);
-  const total = count || 0; const total_pages = Math.ceil(total / page_size);
-  return { venues: venues as Venue[], total, page, page_size, total_pages, has_next: page < total_pages, has_prev: page > 1 };
+  const total = count || 0;
+  const total_pages = Math.ceil(total / page_size);
+  return {
+    venues: venues as Venue[],
+    total,
+    page,
+    page_size,
+    total_pages,
+    has_next: page < total_pages,
+    has_prev: page > 1,
+  };
 }
 
-/**
- * Get available filter options for venue listing
- */
+// Filters API helper (used by /api/venues OPTIONS)
 export async function getVenueFilters(region: string = 'BOS'): Promise<VenueFilters> {
   const { data: localityData, error: localityError } = await supabase
     .from('venue')
@@ -359,44 +397,4 @@ export async function getVenueFilters(region: string = 'BOS'): Promise<VenueFilt
     types,
     public_transit_options,
   };
-}
-
-/**
- * Get a single venue by ID
- */
-export async function getVenueById(id: string): Promise<Venue | null> {
-  const { data, error } = await supabase
-    .from('venue')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return null;
-    }
-    throw new Error(`Failed to fetch venue: ${error.message}`);
-  }
-
-  return data as Venue;
-}
-
-/**
- * Get a venue by normalized URL
- */
-export async function getVenueByUrl(normalized_url: string): Promise<Venue | null> {
-  const { data, error } = await supabase
-    .from('venue')
-    .select('*')
-    .eq('normalized_url', normalized_url)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return null;
-    }
-    throw new Error(`Failed to fetch venue: ${error.message}`);
-  }
-
-  return data as Venue;
 }
