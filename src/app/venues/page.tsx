@@ -102,11 +102,7 @@ export default function VenuesPage() {
   const [isOverSource, setIsOverSource] = useState(false);
   const [activeTooltipVenueId, setActiveTooltipVenueId] = useState<string | null>(null);
 
-  // Venue images state
-  const [venueImages, setVenueImages] = useState<Record<string, Array<{id: string, url: string}>>>({});
-  const [imagesLoading, setImagesLoading] = useState<Record<string, boolean>>({});
-  const [imagesUploading, setImagesUploading] = useState<Record<string, number>>({});
-
+  // Images are now delivered with the venues list via LEFT JOIN; no per-row fetch needed
   const loadingMore = useRef(false);
 
   // Scrollbar refs (only main table scrollbar retained)
@@ -167,10 +163,7 @@ export default function VenuesPage() {
         setUserVenueData(newUserVenueData);
       }
 
-      // Eagerly load artwork thumbnails for all venues in this batch
-      data.venues.forEach(v => {
-        try { loadVenueImages(v.id); } catch (e) { console.warn('loadVenueImages failed for', v.id, e); }
-      });
+      // Images are already included per venue (fields: images, images_count)
     } catch (err) {
       setError('Failed to load venues');
       console.error('Error fetching venues:', err);
@@ -489,26 +482,6 @@ export default function VenuesPage() {
     setActiveTooltipVenueId(venueId);
   };
 
-  // Load and cache artwork thumbnails for a venue
-  async function loadVenueImages(venueId: string, force = false) {
-    // Avoid duplicate or unnecessary fetches unless forced
-    if (!force && (venueImages[venueId] !== undefined || imagesLoading[venueId])) return;
-    setImagesLoading(prev => ({ ...prev, [venueId]: true }));
-    try {
-      const resp = await fetch(`/api/venues/${venueId}/images`);
-      if (resp.ok) {
-        const data = await resp.json();
-        setVenueImages(prev => ({ ...prev, [venueId]: data.images || [] }));
-      } else {
-        console.error('Failed to load venue images for', venueId);
-      }
-    } catch (e) {
-      console.error('Error loading venue images:', e);
-    } finally {
-      setImagesLoading(prev => ({ ...prev, [venueId]: false }));
-    }
-  }
-
   const renderNameTooltip = (venue: Venue): React.ReactNode => {
     return (
       <div>
@@ -522,7 +495,7 @@ export default function VenuesPage() {
 
   const renderStickersNotesArtworkTooltip = (venue: Venue, venueId: string): React.ReactNode => {
     const venueData = userVenueData[venueId];
-    const images = venueImages[venueId] || [];
+    const images = (venues.find(v => v.id === venueId)?.images) || [];
 
     return (
       <div onClick={() => handleVenueClick(venueId)} style={{ cursor: 'pointer' }}>
@@ -849,9 +822,9 @@ export default function VenuesPage() {
                       <VenueStickers venueId={venue.id} refreshSignal={stickerRefreshSignals[venue.id] || 0} initialStickers={venue.user_stickers} />
                       {renderNotesCell(venue.id)}
                       {/* Remove spinner; just render thumbnails if present */}
-                      {venueImages[venue.id] && venueImages[venue.id].length > 0 && (
+                      {venue.images && venue.images.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-                          {venueImages[venue.id].map((image) => (
+                          {venue.images.map((image) => (
                             <img key={image.id} src={image.url} alt="Artwork" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #e5e7eb' }} />
                           ))}
                         </div>
@@ -957,14 +930,27 @@ export default function VenuesPage() {
           onClose={handleCloseModal}
           onNoteSaved={handleNoteSaved}
           onStickerUpdate={handleStickerUpdate}
-          onImagesChanged={(venueId: string) => {
-            setVenueImages(prev => {
-              const next = { ...prev };
-              delete next[venueId];
-              return next;
-            });
-            setImagesLoading(prev => ({ ...prev, [venueId]: true }));
-            loadVenueImages(venueId, true);
+          onImagesChanged={(venueId: string, action?: 'added' | 'removed', payload?: any) => {
+            // Update the venue row locally without refetching all data
+            setVenues(prev => prev.map(v => {
+              if (v.id !== venueId) return v;
+              const curImages = Array.isArray(v.images) ? [...v.images] : [];
+              let images_count = v.images_count || 0;
+              if (action === 'added' && payload) {
+                // payload is expected to be the image object from POST /images (includes signed url)
+                const newImg = { id: payload.id, url: payload.url, created_at: payload.created_at };
+                // Prepend newest; cap at 6 for preview
+                const nextImages = [newImg, ...curImages].slice(0, 6);
+                return { ...v, images: nextImages, images_count: images_count + 1 };
+              }
+              if (action === 'removed' && payload) {
+                const removedId = typeof payload === 'string' ? payload : payload.id;
+                const nextImages = curImages.filter(img => img.id !== removedId);
+                images_count = Math.max(0, images_count - 1);
+                return { ...v, images: nextImages, images_count };
+              }
+              return v;
+            }));
           }}
         />
       )}

@@ -58,7 +58,8 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     // Build the select with LEFT JOIN to notes and sticker assignments
     const selectClause = `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
        note(id, body, artist_user_id),
-       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color))`;
+       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
+       venue_image:venue_image!left(id, file_path, url, created_at, artist_user_id)`;
 
     let query = supabase
       .from('venue')
@@ -97,13 +98,15 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
       throw new Error(`Failed to fetch venues: ${error.message}`);
     }
 
-    // Transform and return
-    const venues = transformVenueData(data || [], userId);
+    // Post-process to: filter venue_image to current user, sort by created_at desc, take top 6,
+    // and create 10-minute signed URLs for thumbnails.
+    const venues = await transformVenueDataWithImages(data || [], userId);
+
     const total = count || 0;
     const total_pages = Math.ceil(total / page_size);
 
     return {
-      venues,
+      venues: venues as Venue[],
       total,
       page,
       page_size,
@@ -118,7 +121,8 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
   const selectClause = userId
     ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
        note(id, body, artist_user_id),
-       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color))`
+       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
+       venue_image:venue_image!left(id, file_path, url, created_at, artist_user_id)`
     : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at';
 
   let query = supabase
@@ -157,8 +161,9 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     throw new Error(`Failed to fetch venues: ${error.message}`);
   }
 
-  // Transform the data to include notes and stickers in a flat structure
-  const venues = transformVenueData(data || [], userId);
+  // Post-process to: filter venue_image to current user, sort by created_at desc, take top 6,
+  // and create 10-minute signed URLs for thumbnails.
+  const venues = await transformVenueDataWithImages(data || [], userId);
 
   const total = count || 0;
   const total_pages = Math.ceil(total / page_size);
@@ -174,8 +179,23 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
   };
 }
 
-// Helper function to transform venue data
-function transformVenueData(data: any[], userId?: string): any[] {
+// Helper: create signed URLs for a list of storage paths
+async function signUrls(paths: string[]): Promise<Record<string, string>> {
+  const BUCKET = process.env.STORAGE_BUCKET_VENUE_IMAGES || 'artwork';
+  const ttlSeconds = 600; // 10 minutes
+  const out: Record<string, string> = {};
+  for (const p of paths) {
+    try {
+      const { data: signed, error } = await supabase.storage.from(BUCKET).createSignedUrl(p, ttlSeconds);
+      if (!error && signed?.signedUrl) out[p] = signed.signedUrl;
+    } catch (e) {
+      // continue on error; leave url empty
+    }
+  }
+  return out;
+}
+
+function transformVenueDataBase(data: any[], userId?: string): any[] {
   return data.map((venue: any) => {
     const result: any = { ...venue };
 
@@ -208,6 +228,38 @@ function transformVenueData(data: any[], userId?: string): any[] {
   });
 }
 
+async function transformVenueDataWithImages(data: any[], userId?: string): Promise<any[]> {
+  const base = transformVenueDataBase(data, userId);
+
+  if (!userId) {
+    // No user scope; do not expose images
+    return base.map(v => ({ ...v, images: [], images_count: 0 }));
+  }
+
+  // Build per-venue image arrays filtered by artist_user_id
+  const pathsToSign: string[] = [];
+  const byVenue = base.map((v: any) => {
+    const imgs = Array.isArray((v as any).venue_image) ? (v as any).venue_image : [];
+    const mine = imgs.filter((img: any) => img.artist_user_id === userId);
+    // Newest first, cap 6
+    mine.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const top = mine.slice(0, 6);
+    top.forEach((img: any) => { if (img.file_path) pathsToSign.push(img.file_path); });
+    return { venue: v, mineAll: mine, top };
+  });
+
+  // Sign URLs for top images
+  const signedMap = await signUrls(pathsToSign);
+
+  return byVenue.map(({ venue, mineAll, top }) => {
+    const images = top.map((img: any) => ({ id: img.id, url: signedMap[img.file_path] || img.url || '', created_at: img.created_at }));
+    const images_count = mineAll.length;
+    const out = { ...venue, images, images_count };
+    delete (out as any).venue_image;
+    return out;
+  });
+}
+
 /**
  * M0-VEN-02: Full-text search (name + summaries)
  * AC: Query param q searches FTS & trigram fallback; returns highlight snippets;
@@ -228,100 +280,41 @@ export async function searchVenues(
     sort_order = 'asc',
   } = params;
 
-  // Sanitize search query to prevent SQL injection
   const sanitizedQuery = query.trim().replace(/[^\w\s-]/g, '');
-
   if (!sanitizedQuery) {
     return getVenues(params, userId);
   }
 
   const offset = (page - 1) * page_size;
 
-  // Build the select with LEFT JOIN to notes and sticker assignments
   const selectClause = userId
     ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
        note(id, body, artist_user_id),
-       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color))`
+       sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
+       venue_image:venue_image!left(id, file_path, url, created_at, artist_user_id)`
     : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at';
 
   let searchQuery = supabase
     .from('venue')
     .select(selectClause, { count: 'exact' })
-    .textSearch('search', sanitizedQuery, {
-      type: 'websearch',
-      config: 'english',
-    });
+    .textSearch('search', sanitizedQuery, { type: 'websearch', config: 'english' });
 
-  // Apply filters
-  if (locality) {
-    searchQuery = searchQuery.eq('locality', locality);
-  }
+  if (locality) searchQuery = searchQuery.eq('locality', locality);
+  if (type) searchQuery = searchQuery.eq('type', type);
+  if (public_transit) searchQuery = searchQuery.eq('public_transit', public_transit);
 
-  if (type) {
-    searchQuery = searchQuery.eq('type', type);
-  }
-
-  if (public_transit) {
-    searchQuery = searchQuery.eq('public_transit', public_transit);
-  }
-
-  // Apply sorting
   const sortColumn = sort === 'locality' ? 'locality' : 'name';
   searchQuery = searchQuery.order(sortColumn, { ascending: sort_order === 'asc' });
-
-  // Apply pagination
   searchQuery = searchQuery.range(offset, offset + page_size - 1);
 
   const { data, error, count } = await searchQuery;
-
   if (error) {
     throw new Error(`Failed to search venues: ${error.message}`);
   }
 
-  // Transform the data to include notes and stickers in a flat structure
-  const venues = (data || []).map((venue: any) => {
-    const result: any = { ...venue };
-
-    // Handle notes
-    if (userId && venue.note && Array.isArray(venue.note)) {
-      const userNote = venue.note.find((n: any) => n.artist_user_id === userId);
-      result.user_note = userNote ? { id: userNote.id, body: userNote.body } : null;
-    } else {
-      result.user_note = null;
-    }
-    delete result.note;
-
-    // Handle sticker assignments
-    if (userId && venue.sticker_assignment && Array.isArray(venue.sticker_assignment)) {
-      result.user_stickers = venue.sticker_assignment
-        .filter((sa: any) => sa.artist_user_id === userId && sa.sticker_meaning)
-        .map((sa: any) => ({
-          id: sa.id,
-          sticker_meaning_id: sa.sticker_meaning_id,
-          color: sa.sticker_meaning.color,
-          label: sa.sticker_meaning.label,
-          details: sa.sticker_meaning.details
-        }));
-    } else {
-      result.user_stickers = [];
-    }
-    delete result.sticker_assignment;
-
-    return result;
-  });
-
-  const total = count || 0;
-  const total_pages = Math.ceil(total / page_size);
-
-  return {
-    venues: venues as Venue[],
-    total,
-    page,
-    page_size,
-    total_pages,
-    has_next: page < total_pages,
-    has_prev: page > 1,
-  };
+  const venues = await transformVenueDataWithImages(data || [], userId);
+  const total = count || 0; const total_pages = Math.ceil(total / page_size);
+  return { venues: venues as Venue[], total, page, page_size, total_pages, has_next: page < total_pages, has_prev: page > 1 };
 }
 
 /**

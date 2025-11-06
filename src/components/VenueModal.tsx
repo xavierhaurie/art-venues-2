@@ -243,7 +243,7 @@ export default function VenueModal(props: any) {
         if (response.ok) {
           const data = await response.json();
           addImage?.(venue.id, data.image);
-          try { props?.onImagesChanged && props.onImagesChanged(venue.id, 'added', data.image?.id); } catch {}
+          try { props?.onImagesChanged && props.onImagesChanged(venue.id, 'added', data.image); } catch {}
         } else {
           // Try to parse response body for a helpful error message
           let msg = `Failed to upload ${file.name}`;
