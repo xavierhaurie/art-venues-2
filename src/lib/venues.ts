@@ -59,7 +59,7 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     const selectClause = `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
        note(id, body, artist_user_id),
        sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
-       venue_image:venue_image!left(id, file_path, url, created_at, artist_user_id)`;
+       venue_image:venue_image!left(id, file_path, file_path_thumb, url, created_at, artist_user_id)`;
 
     let query = supabase
       .from('venue')
@@ -122,7 +122,7 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
        note(id, body, artist_user_id),
        sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
-       venue_image:venue_image!left(id, file_path, url, created_at, artist_user_id)`
+       venue_image:venue_image!left(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
     : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at';
 
   let query = supabase
@@ -244,7 +244,10 @@ async function transformVenueDataWithImages(data: any[], userId?: string): Promi
     // Newest first, cap 6
     mine.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     const top = mine.slice(0, 6);
-    top.forEach((img: any) => { if (img.file_path) pathsToSign.push(img.file_path); });
+    top.forEach((img: any) => {
+      if (img.file_path_thumb) pathsToSign.push(img.file_path_thumb);
+      if (img.file_path) pathsToSign.push(img.file_path);
+    });
     return { venue: v, mineAll: mine, top };
   });
 
@@ -252,7 +255,12 @@ async function transformVenueDataWithImages(data: any[], userId?: string): Promi
   const signedMap = await signUrls(pathsToSign);
 
   return byVenue.map(({ venue, mineAll, top }) => {
-    const images = top.map((img: any) => ({ id: img.id, url: signedMap[img.file_path] || img.url || '', created_at: img.created_at }));
+    const images = top.map((img: any) => ({
+      id: img.id,
+      url: signedMap[img.file_path] || img.url || '',
+      thumb_url: signedMap[img.file_path_thumb] || signedMap[img.file_path] || img.url || '',
+      created_at: img.created_at
+    }));
     const images_count = mineAll.length;
     const out = { ...venue, images, images_count };
     delete (out as any).venue_image;
@@ -291,7 +299,7 @@ export async function searchVenues(
     ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, 
        note(id, body, artist_user_id),
        sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
-       venue_image:venue_image!left(id, file_path, url, created_at, artist_user_id)`
+       venue_image:venue_image!left(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
     : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at';
 
   let searchQuery = supabase

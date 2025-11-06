@@ -167,6 +167,7 @@ CREATE TABLE venue_image (
   artist_user_id  uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
   file_path       text NOT NULL,
   url             text NOT NULL,
+  file_path_thumb text NOT NULL,
   title           text,
   details         text,
   display_order   integer NOT NULL DEFAULT 1,

@@ -28,7 +28,7 @@ export async function GET(
 
     const { data, error } = await supabase
       .from('venue_image')
-      .select('*')
+      .select('id, venue_id, artist_user_id, file_path, file_path_thumb, url, title, details, display_order, file_size, mime_type, created_at')
       .eq('venue_id', params.venueId)
       .eq('artist_user_id', session.userId)
       .order('display_order', { ascending: true });
@@ -38,22 +38,16 @@ export async function GET(
       return NextResponse.json({ error: 'Failed to fetch images' }, { status: 500 });
     }
 
-    // Generate signed URLs for private bucket (valid for 1 hour)
+    // Generate signed URLs for private bucket (valid for 10 minutes)
     const imagesWithSignedUrls = await Promise.all(
       (data || []).map(async (image) => {
-        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-          .from(BUCKET)
-          .createSignedUrl(image.file_path, 3600); // 1 hour expiry
+        const { data: signedFull, error: errFull } = await supabase.storage.from(BUCKET).createSignedUrl(image.file_path, 600);
+        const thumbPath = image.file_path_thumb || image.file_path;
+        const { data: signedThumb, error: errThumb } = await supabase.storage.from(BUCKET).createSignedUrl(thumbPath, 600);
 
-        if (signedUrlError) {
-          console.error('Error creating signed URL:', signedUrlError);
-          return image; // Return original image with stored URL as fallback
-        }
-
-        return {
-          ...image,
-          url: signedUrlData.signedUrl
-        };
+        if (errFull) console.error('Error creating full-size signed URL:', errFull);
+        if (errThumb) console.error('Error creating thumb signed URL:', errThumb);
+        return { ...image, url: signedFull?.signedUrl || image.url, thumb_url: signedThumb?.signedUrl || signedFull?.signedUrl || image.url };
       })
     );
 
@@ -132,7 +126,8 @@ export async function POST(
     const safeTimestamp = Date.now();
     const sanitizedUserId = String(session.userId).replace(/[^a-zA-Z0-9_-]/g, '_');
     const sanitizedVenueId = String(params.venueId).replace(/[^a-zA-Z0-9_-]/g, '_');
-    const fileName = `${sanitizedUserId}/${sanitizedVenueId}/${safeTimestamp}.${fileExt}`;
+    const basePath = `${sanitizedUserId}/${sanitizedVenueId}/${safeTimestamp}`;
+    const fileName = `${basePath}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from(BUCKET)
@@ -143,22 +138,27 @@ export async function POST(
 
     if (uploadError) {
       console.error(`Error uploading file to bucket='${BUCKET}':`, uploadError);
-      // Return the error message from Supabase when possible to help debugging
       const msg = uploadError?.message || JSON.stringify(uploadError);
       return NextResponse.json({ error: `Failed to upload file to bucket='${BUCKET}': ${msg}` }, { status: 500 });
     }
 
-    // For private buckets, we'll generate signed URLs on demand
-    // Store the file_path and we'll create signed URLs when fetching
+    // Create a 100px thumbnail variant client-side is not reliable on server routes; use same file for now or future transform function
+    // Store thumb path equal to original path for now; you can later swap to a generated thumb path
+    const thumbPath = `${basePath}.thumb.${fileExt}`;
 
-    // Save image record to database
+    // Attempt to copy/transform to a thumb path if available (optional noop)
+    // If your storage has an edge function to create thumbnails, invoke it here.
+    // For now, we won't create a physical copy; we'll sign original for both but store thumb path for future backfill.
+
+    // Save image record to database with thumb path
     const { data: imageData, error: dbError } = await supabase
       .from('venue_image')
       .insert({
         venue_id: params.venueId,
         artist_user_id: session.userId,
         file_path: fileName,
-        url: fileName, // Store file_path in url field for now (will be replaced with signed URL on GET)
+        file_path_thumb: thumbPath,
+        url: fileName,
         title: title || null,
         display_order: nextOrder,
         file_size: file.size,
@@ -175,18 +175,17 @@ export async function POST(
       return NextResponse.json({ error: `Failed to save image record (bucket='${BUCKET}'): ${msg}` }, { status: 500 });
     }
 
-    // Generate a signed URL to return to the client
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUrl(fileName, 3600); // 1 hour expiry
+    // Generate signed URLs (10 minutes)
+    const { data: signedFull } = await supabase.storage.from(BUCKET).createSignedUrl(fileName, 600);
+    const { data: signedThumb } = await supabase.storage.from(BUCKET).createSignedUrl(thumbPath, 600);
 
-    if (signedUrlError) {
-      console.error('Error creating signed URL:', signedUrlError);
-    } else {
-      imageData.url = signedUrlData.signedUrl;
-    }
+    const responseImage = {
+      ...imageData,
+      url: signedFull?.signedUrl || imageData.url,
+      thumb_url: signedThumb?.signedUrl || signedFull?.signedUrl || imageData.url
+    };
 
-    return NextResponse.json({ image: imageData });
+    return NextResponse.json({ image: responseImage });
   } catch (error) {
     console.error('Error in venue images POST:', error);
     const msg = (error as any)?.message || JSON.stringify(error);

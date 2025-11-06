@@ -45,7 +45,7 @@ export interface Venue {
     details: string | null;
   }>;
   // New: preloaded artwork thumbnails and count for this venue (current artist)
-  images?: Array<{ id: string; url: string; created_at: string }>;
+  images?: Array<{ id: string; url: string; thumb_url?: string; created_at: string }>;
   images_count?: number;
 }
 

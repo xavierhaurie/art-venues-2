@@ -36,6 +36,8 @@ interface Venue {
     label: string;
     details: string | null;
   }>;
+  images?: Array<{ id: string; url: string; thumb_url?: string; created_at: string }>;
+  images_count?: number;
 }
 
 interface VenuesResponse {
@@ -467,20 +469,37 @@ export default function VenuesPage() {
     setIsOverSource(false);
   };
 
-  const handleCellClick = (event: React.MouseEvent<HTMLElement>, content: React.ReactNode, venueId: string) => {
-    event.stopPropagation();
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    setClickedCell({ content, x: rect.left + 15, y: rect.top + 10, venueId });
-    setHoveredCell(null);
-    setActiveTooltipVenueId(venueId);
-  };
+  const handleCellClick = async (event: React.MouseEvent<HTMLElement>, content: React.ReactNode, venueId: string) => {
+     event.stopPropagation();
+     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+     setClickedCell({ content, x: rect.left + 15, y: rect.top + 10, venueId });
+     setHoveredCell(null);
+     setActiveTooltipVenueId(venueId);
+    // Re-sign URLs for the visible row when pinned to avoid stale URLs
+    try {
+      const resp = await fetch(`/api/venues/${venueId}/images`);
+      if (resp.ok) {
+        const data = await resp.json();
+        const fresh = (data.images || []).map((img: any) => ({ id: img.id, url: img.url, thumb_url: img.thumb_url || img.url, created_at: img.created_at }));
+        setVenues(prev => prev.map(v => v.id === venueId ? { ...v, images: fresh } : v));
+      }
+    } catch {}
+   };
 
-  const handleCellTouch = (event: React.TouchEvent<HTMLElement>, content: React.ReactNode, venueId: string) => {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    setClickedCell({ content, x: rect.left + 15, y: rect.top + 10, venueId });
-    setHoveredCell(null);
-    setActiveTooltipVenueId(venueId);
-  };
+  const handleCellTouch = async (event: React.TouchEvent<HTMLElement>, content: React.ReactNode, venueId: string) => {
+     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+     setClickedCell({ content, x: rect.left + 15, y: rect.top + 10, venueId });
+     setHoveredCell(null);
+     setActiveTooltipVenueId(venueId);
+    try {
+      const resp = await fetch(`/api/venues/${venueId}/images`);
+      if (resp.ok) {
+        const data = await resp.json();
+        const fresh = (data.images || []).map((img: any) => ({ id: img.id, url: img.url, thumb_url: img.thumb_url || img.url, created_at: img.created_at }));
+        setVenues(prev => prev.map(v => v.id === venueId ? { ...v, images: fresh } : v));
+      }
+    } catch {}
+   };
 
   const renderNameTooltip = (venue: Venue): React.ReactNode => {
     return (
@@ -821,11 +840,14 @@ export default function VenuesPage() {
                     >
                       <VenueStickers venueId={venue.id} refreshSignal={stickerRefreshSignals[venue.id] || 0} initialStickers={venue.user_stickers} />
                       {renderNotesCell(venue.id)}
-                      {/* Remove spinner; just render thumbnails if present */}
+                      {/* Quick glance: image count */}
+                      {typeof venue.images_count === 'number' && (
+                        <div style={{ fontSize: '12px', color: '#6b7280' }}>Artwork: {venue.images_count}</div>
+                      )}
                       {venue.images && venue.images.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
                           {venue.images.map((image) => (
-                            <img key={image.id} src={image.url} alt="Artwork" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #e5e7eb' }} />
+                            <img key={image.id} src={image.thumb_url || image.url} alt="Artwork" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #e5e7eb' }} />
                           ))}
                         </div>
                       )}
@@ -938,7 +960,7 @@ export default function VenuesPage() {
               let images_count = v.images_count || 0;
               if (action === 'added' && payload) {
                 // payload is expected to be the image object from POST /images (includes signed url)
-                const newImg = { id: payload.id, url: payload.url, created_at: payload.created_at };
+                const newImg = { id: payload.id, url: payload.url, thumb_url: payload.thumb_url || payload.url, created_at: payload.created_at };
                 // Prepend newest; cap at 6 for preview
                 const nextImages = [newImg, ...curImages].slice(0, 6);
                 return { ...v, images: nextImages, images_count: images_count + 1 };
