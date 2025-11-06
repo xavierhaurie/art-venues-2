@@ -120,7 +120,11 @@ export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, 
           <div style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem' }}>
             <button
               type="button"
-              onClick={() => onToggleTransitKnown(false)}
+              onClick={() => {
+                onToggleTransitKnown(false);
+                onToggleImagesPresent && onToggleImagesPresent(false);
+                onToggleNotesPresent && onToggleNotesPresent(false);
+              }}
               style={{ padding: '0.5rem 1rem', backgroundColor: '#e5e7eb', color: '#374151', border: 'none', borderRadius: 6, fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#d1d5db')}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#e5e7eb')}

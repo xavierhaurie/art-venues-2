@@ -661,11 +661,45 @@ export default function VenuesPage() {
   };
 
   if (loading && venues.length === 0) {
-    return <div className="flex justify-center items-center h-64">Loading venues...</div>;
+    return (
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <svg width="56" height="56" viewBox="0 0 38 38" stroke="#3b82f6" aria-label="Loading initial venues">
+            <g fill="none" fillRule="evenodd">
+              <g transform="translate(1 1)" strokeWidth="3">
+                <circle strokeOpacity=".2" cx="18" cy="18" r="18" />
+                <path d="M36 18c0-9.94-8.06-18-18-18">
+                  <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="1s" repeatCount="indefinite" />
+                </path>
+              </g>
+            </g>
+          </svg>
+          <div style={{ marginTop: 12, color: '#374151', fontSize: 16 }}>Loading venues…</div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="container mx-auto px-4 py-8 font-sans" style={{ margin: '2rem', overflowX: 'hidden' }}>
+      {/* Page-level loading overlay centered on the viewport when refreshing (not initial load) */}
+      {loading && venues.length > 0 && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.6)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+           <div style={{ textAlign: 'center' }}>
+             <svg width="48" height="48" viewBox="0 0 38 38" stroke="#3b82f6" aria-label="Loading">
+               <g fill="none" fillRule="evenodd">
+                 <g transform="translate(1 1)" strokeWidth="3">
+                   <circle strokeOpacity=".2" cx="18" cy="18" r="18" />
+                   <path d="M36 18c0-9.94-8.06-18-18-18">
+                     <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="1s" repeatCount="indefinite" />
+                   </path>
+                 </g>
+               </g>
+             </svg>
+             <div style={{ marginTop: 10, color: '#374151', fontSize: 14 }}>Loading…</div>
+           </div>
+         </div>
+       )}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-6">{formatRegionsTitle(regionNames)}</h1>
 
@@ -827,22 +861,6 @@ export default function VenuesPage() {
             className="overflow-x-auto relative"
             style={{ border: '1px solid #e5e7eb', borderRadius: 8 }}
           >
-            {/* Overlay spinner while refreshing table data (not the very first load, which has its own screen-level message) */}
-            {loading && venues.length > 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center z-10" style={{ backgroundColor: 'rgba(255,255,255,0.6)' }}>
-                <svg width="36" height="36" viewBox="0 0 38 38" stroke="#3b82f6" aria-label="Loading">
-                  <g fill="none" fillRule="evenodd">
-                    <g transform="translate(1 1)" strokeWidth="3">
-                      <circle strokeOpacity=".2" cx="18" cy="18" r="18" />
-                      <path d="M36 18c0-9.94-8.06-18-18-18">
-                        <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="1s" repeatCount="indefinite" />
-                      </path>
-                    </g>
-                  </g>
-                </svg>
-                <div style={{ marginTop: 8, color: '#374151', fontSize: 13 }}>Loading…</div>
-              </div>
-            )}
             <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '20%' }} />
@@ -865,6 +883,13 @@ export default function VenuesPage() {
                  </tr>
                </thead>
                <tbody>
+                 {!loading && venues.length === 0 && (
+                   <tr>
+                     <td colSpan={7} style={{ padding: '16px', textAlign: 'center', color: '#6b7280' }}>
+                       No venues match your filters
+                     </td>
+                   </tr>
+                 )}
                  {venues.map((venue, index) => (
                    <tr key={venue.id} style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#f2f3f5' }}>
                   {/* Name first */}
