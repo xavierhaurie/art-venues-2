@@ -30,6 +30,8 @@ export async function GET(request: NextRequest) {
     const transit_known = searchParams.get('transit_known') === 'true';
     const images_present = searchParams.get('images_present') === 'true';
     const notes_present = searchParams.get('notes_present') === 'true';
+    const show_public = searchParams.get('show_public') !== 'false'; // default true
+    const show_mine = searchParams.get('show_mine') !== 'false';     // default true
 
     // Parse sticker filter parameter
     const sticker_ids_param = searchParams.get('sticker_ids');
@@ -56,6 +58,8 @@ export async function GET(request: NextRequest) {
       transit_known,
       images_present,
       notes_present,
+      show_public,
+      show_mine,
     };
 
     // Use search function if query provided, otherwise use regular listing
@@ -77,6 +81,112 @@ export async function GET(request: NextRequest) {
       },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * POST /api/venues
+ * Create a new venue (admin -> public; user -> user-owned)
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const {
+      name,
+      type,
+      region_code,
+      locality,
+      address,
+      website_url,
+      public_transit,
+      map_link,
+      artist_summary,
+      visitor_summary,
+      facebook,
+      instagram,
+      claim_status = 'unclaimed'
+    } = body || {};
+
+    // Basic validation
+    const required = { name, type, region_code, locality, address, website_url };
+    const missing = Object.entries(required).filter(([, v]) => !v || String(v).trim() === '').map(([k]) => k);
+    if (missing.length > 0) {
+      return NextResponse.json({ error: `Missing required fields: ${missing.join(', ')}` }, { status: 400 });
+    }
+
+    // Normalize URL slug based on name (lowercase, dash-separated) as a fallback
+    const normalized_url = String(name).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+    // Use service-key supabase client via lib/venues createClient
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // If non-admin user, enforce 20 venue limit and set owner to user
+    let owner_user_id: string | null = null;
+    const isAdmin = session.role === 'admin';
+    if (!isAdmin) {
+      owner_user_id = session.userId;
+      const { count, error: cntErr } = await supabase
+        .from('venue')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_user_id', owner_user_id);
+      if (cntErr) {
+        return NextResponse.json({ error: `Failed to validate limit: ${cntErr.message}` }, { status: 500 });
+      }
+      if ((count || 0) >= 20) {
+        return NextResponse.json({ error: 'Venue limit reached (20). Please convert venues to public to add more.' }, { status: 400 });
+      }
+    }
+
+    // Insert venue (public if admin, user-owned otherwise)
+    const insertPayload: any = {
+      name,
+      type,
+      website_url,
+      region_code,
+      locality,
+      address,
+      public_transit,
+      map_link,
+      artist_summary,
+      visitor_summary,
+      facebook,
+      instagram,
+      claim_status,
+      normalized_url,
+      owner_user_id,
+    };
+
+    const { data, error } = await supabase
+      .from('venue')
+      .insert(insertPayload)
+      .select('id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, owner_user_id')
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: `Failed to create venue: ${error.message}` }, { status: 400 });
+    }
+
+    // shape minimal response for list injection
+    const created = {
+      ...data,
+      images: [],
+      images_count: 0,
+      user_note: null,
+      user_stickers: [],
+      user_owned: !!data.owner_user_id && data.owner_user_id === session.userId,
+    };
+
+    return NextResponse.json({ venue: created }, { status: 201 });
+  } catch (err: any) {
+    return NextResponse.json({ error: 'Failed to create venue', message: err?.message || String(err) }, { status: 500 });
   }
 }
 

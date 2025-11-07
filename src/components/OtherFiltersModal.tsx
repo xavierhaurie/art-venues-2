@@ -9,10 +9,14 @@ interface OtherFiltersModalProps {
   onToggleImagesPresent?: (value: boolean) => void;
   notesPresent?: boolean;
   onToggleNotesPresent?: (value: boolean) => void;
+  showPublic: boolean;
+  showMine: boolean;
+  onToggleShowPublic: (value: boolean) => void;
+  onToggleShowMine: (value: boolean) => void;
   onClose: () => void;
 }
 
-export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, imagesPresent = false, onToggleImagesPresent, notesPresent = false, onToggleNotesPresent, onClose }: OtherFiltersModalProps) {
+export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, imagesPresent = false, onToggleImagesPresent, notesPresent = false, onToggleNotesPresent, showPublic, showMine, onToggleShowPublic, onToggleShowMine, onClose }: OtherFiltersModalProps) {
   return (
     <>
       {/* Backdrop */}
@@ -45,6 +49,42 @@ export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, 
           {/* Content */}
           <div style={{ padding: '1.25rem 1.5rem' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+              <div
+                onClick={() => onToggleShowPublic(!showPublic)}
+                style={{
+                  backgroundColor: showPublic ? '#fed7aa' : '#e5e7eb',
+                  fontSize: '14px',
+                  padding: '10px',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  border: '2px solid transparent',
+                  transition: 'all 0.2s',
+                  userSelect: 'none'
+                }}
+                onMouseEnter={(e) => { if (!showPublic) e.currentTarget.style.backgroundColor = '#d1d5db'; }}
+                onMouseLeave={(e) => { if (!showPublic) e.currentTarget.style.backgroundColor = '#e5e7eb'; }}
+              >
+                Show public places
+              </div>
+              <div
+                onClick={() => onToggleShowMine(!showMine)}
+                style={{
+                  backgroundColor: showMine ? '#fed7aa' : '#e5e7eb',
+                  fontSize: '14px',
+                  padding: '10px',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  border: '2px solid transparent',
+                  transition: 'all 0.2s',
+                  userSelect: 'none'
+                }}
+                onMouseEnter={(e) => { if (!showMine) e.currentTarget.style.backgroundColor = '#d1d5db'; }}
+                onMouseLeave={(e) => { if (!showMine) e.currentTarget.style.backgroundColor = '#e5e7eb'; }}
+              >
+                Show my places
+              </div>
               <div
                 onClick={() => onToggleTransitKnown(!transitKnown)}
                 style={{
@@ -124,6 +164,8 @@ export default function OtherFiltersModal({ transitKnown, onToggleTransitKnown, 
                 onToggleTransitKnown(false);
                 onToggleImagesPresent && onToggleImagesPresent(false);
                 onToggleNotesPresent && onToggleNotesPresent(false);
+                onToggleShowPublic(true);
+                onToggleShowMine(true);
               }}
               style={{ padding: '0.5rem 1rem', backgroundColor: '#e5e7eb', color: '#374151', border: 'none', borderRadius: 6, fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#d1d5db')}

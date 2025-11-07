@@ -38,6 +38,7 @@ interface Venue {
   }>;
   images?: Array<{ id: string; url: string; thumb_url?: string; created_at: string }>;
   images_count?: number;
+  user_owned?: boolean;
 }
 
 interface VenuesResponse {
@@ -73,6 +74,13 @@ export default function VenuesPage() {
   const [imagesPresent, setImagesPresent] = useState(false);
   const [notesPresent, setNotesPresent] = useState(false);
   const [showOtherFilters, setShowOtherFilters] = useState(false);
+  // Ownership filter toggles (default both true)
+  const [showPublic, setShowPublic] = useState(true);
+  const [showMine, setShowMine] = useState(true);
+  // Credits total
+  const [credits, setCredits] = useState<number | null>(null);
+  const [meRole, setMeRole] = useState<string | null>(null);
+  const [showCreateVenueModal, setShowCreateVenueModal] = useState(false);
 
   // Locality picker state
   const [localities, setLocalities] = useState<Array<{id: string, name: string}>>([]);
@@ -129,7 +137,9 @@ export default function VenuesPage() {
     append = false,
     transitKnownFlag = transitKnown,
     imagesPresentFlag = imagesPresent,
-    notesPresentFlag = notesPresent
+    notesPresentFlag = notesPresent,
+    showPublicFlag = showPublic,
+    showMineFlag = showMine
   ) => {
     try {
       if (!append) {
@@ -148,6 +158,18 @@ export default function VenuesPage() {
       if (imagesPresentFlag) params.append('images_present', 'true');
       if (notesPresentFlag) params.append('notes_present', 'true');
 
+      if (!showPublicFlag && !showMineFlag) {
+        // Short-circuit empty
+        setVenues([]);
+        setCurrentPage(1);
+        setHasMore(false);
+        setError(null);
+        setLoading(false);
+        loadingMore.current = false;
+        return;
+      }
+      if (!showPublicFlag) params.append('show_public', 'false');
+      if (!showMineFlag) params.append('show_mine', 'false');
       const response = await fetch(`/api/venues?${params}`);
       if (!response.ok) {
         throw new Error('Failed to fetch venues');
@@ -195,6 +217,10 @@ export default function VenuesPage() {
     loadStickerMeanings();
     loadLocalities();
     loadVenueTypes();
+    // Load credits total
+    fetch('/api/credits').then(r=>r.json()).then(d=>setCredits(typeof d.total_credits==='number'?d.total_credits:0)).catch(()=>setCredits(null));
+    // Load current user role for create-mode styling
+    fetch('/api/me').then(r=>r.json()).then(d=>setMeRole(d.role || null)).catch(()=>setMeRole(null));
   }, []);
 
   const loadLocalities = async () => {
@@ -284,7 +310,7 @@ export default function VenuesPage() {
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loading && !loadingMore.current) {
           loadingMore.current = true;
-          fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, true, transitKnown, imagesPresent, notesPresent);
+          fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, true, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
         }
       },
       { threshold: 0.1 }
@@ -306,7 +332,7 @@ export default function VenuesPage() {
     e.preventDefault();
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
   };
 
   const handleFilterChange = (key: string, value: string) => {
@@ -314,7 +340,7 @@ export default function VenuesPage() {
     setFilters(newFilters);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, newFilters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
+    fetchVenues(1, searchQuery, newFilters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
   };
 
   const handleStickerFilterToggle = (stickerMeaningId: string) => {
@@ -325,7 +351,7 @@ export default function VenuesPage() {
     setSelectedStickerFilters(newSelectedFilters);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, newSelectedFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
+    fetchVenues(1, searchQuery, filters, newSelectedFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
   };
 
   const handleLocalityToggle = (localityName: string) => {
@@ -336,14 +362,14 @@ export default function VenuesPage() {
     setSelectedLocalities(newSelectedLocalities);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, newSelectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, newSelectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
   };
 
   const handleClearLocalities = () => {
     setSelectedLocalities([]);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, [], selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, [], selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
   };
 
   const handleVenueTypeToggle = (venueTypeName: string) => {
@@ -354,21 +380,21 @@ export default function VenuesPage() {
     setSelectedVenueTypes(newSelectedVenueTypes);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, newSelectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, newSelectedVenueTypes, false, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
   };
 
   const handleClearVenueTypes = () => {
     setSelectedVenueTypes([]);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, [], false, transitKnown, imagesPresent, notesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, [], false, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
   };
 
   const handleClearStickerFilters = () => {
     setSelectedStickerFilters([]);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, [], selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
+    fetchVenues(1, searchQuery, filters, [], selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
   };
 
   const handleVenueClick = (venueId: string) => {
@@ -591,7 +617,7 @@ export default function VenuesPage() {
     searchDebounceRef.current = setTimeout(() => {
       setCurrentPage(1);
       setHasMore(true);
-      fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent);
+      fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
     }, 300);
     return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
   }, [searchQuery]);
@@ -600,7 +626,7 @@ export default function VenuesPage() {
     setTransitKnown(checked);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, checked, imagesPresent, notesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, checked, imagesPresent, notesPresent, showPublic, showMine);
   };
 
   const handleImagesPresentToggle = (checked: boolean) => {
@@ -608,14 +634,29 @@ export default function VenuesPage() {
     setCurrentPage(1);
     setHasMore(true);
     // Use the explicit checked value to avoid stale state inversion
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, checked, notesPresent);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, checked, notesPresent, showPublic, showMine);
   };
 
   const handleNotesPresentToggle = (checked: boolean) => {
     setNotesPresent(checked);
     setCurrentPage(1);
     setHasMore(true);
-    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, checked);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, checked, showPublic, showMine);
+  };
+
+  // Ownership toggles
+  const handleToggleShowPublic = (val: boolean) => {
+    setShowPublic(val);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent, val, showMine);
+  };
+
+  const handleToggleShowMine = (val: boolean) => {
+    setShowMine(val);
+    setCurrentPage(1);
+    setHasMore(true);
+    fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent, showPublic, val);
   };
 
   const handleClearAll = () => {
@@ -675,15 +716,21 @@ export default function VenuesPage() {
   return (
     <div className="container mx-auto px-4 py-8 font-sans" style={{ margin: '2rem', overflowX: 'hidden' }}>
       <style jsx global>{`@keyframes nw5spin{to{transform:rotate(360deg)}}`}</style>
-      {/* Page-level loading overlay centered on the viewport when refreshing (not initial load) */}
-      {loading && venues.length > 0 && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.6)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div aria-label="Loading" style={{ width: 48, height: 48, border: '4px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'nw5spin 0.9s linear infinite', boxShadow: '0 0 0 2px rgba(59,130,246,0.12) inset' }} />
-            <div style={{ marginTop: 10, color: '#374151', fontSize: 14 }}>Loading…</div>
-          </div>
+      {/* Add Venue + credits notice */}
+      <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'12px' }}>
+        <button
+          type="button"
+          onClick={() => setShowCreateVenueModal(true)}
+          style={{ padding:'0.5rem 1rem', backgroundColor:'#3b82f6', color:'white', border:'none', borderRadius:6, fontWeight:600, cursor:'pointer' }}
+          onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = '#2563eb'; }}
+          onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = '#3b82f6'; }}
+        >
+          Add Venue
+        </button>
+        <div style={{ fontSize:13, color:'#374151' }}>
+          You have {typeof credits==='number' ? credits : 0} credits. <span style={{ fontStyle:'italic', color:'#6b7280' }}>Earn credits for your venues when we make them accessible to everyone</span>
         </div>
-      )}
+      </div>
 
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-6">{formatRegionsTitle(regionNames)}</h1>
@@ -876,7 +923,7 @@ export default function VenuesPage() {
                    </tr>
                  )}
                  {venues.map((venue, index) => (
-                   <tr key={venue.id} style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#f2f3f5' }}>
+                   <tr key={venue.id} style={{ backgroundColor: venue.user_owned ? (index % 2 === 0 ? '#f3fdf3' : '#e8f9e8') : (index % 2 === 0 ? '#ffffff' : '#f2f3f5') }}>
                   {/* Name first */}
                   <td className="text-blue-600 hover:text-blue-800 cursor-pointer" style={{ padding: '10px', fontWeight: 'bold', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
                     <div style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none', cursor: 'pointer' }} onClick={() => handleVenueClick(venue.id)}>
@@ -1009,9 +1056,13 @@ export default function VenuesPage() {
            onToggleImagesPresent={(value: boolean) => handleImagesPresentToggle(value)}
            notesPresent={notesPresent}
            onToggleNotesPresent={(value: boolean) => handleNotesPresentToggle(value)}
+           showPublic={showPublic}
+           showMine={showMine}
+           onToggleShowPublic={handleToggleShowPublic}
+           onToggleShowMine={handleToggleShowMine}
            onClose={() => setShowOtherFilters(false)}
          />
-      )}
+       )}
 
       {selectedVenueId && selectedVenue && (
         <VenueModal
@@ -1040,6 +1091,22 @@ export default function VenuesPage() {
               }
               return v;
             }));
+          }}
+        />
+      )}
+
+      {showCreateVenueModal && (
+        <VenueModal
+          mode="create"
+          userRole={meRole || 'artist'}
+          onClose={() => setShowCreateVenueModal(false)}
+          onVenueCreated={(created: Venue) => {
+            // Inject row and keep list sorted by name
+            setVenues(prev => {
+              const next = [...prev, created];
+              next.sort((a, b) => a.name.localeCompare(b.name));
+              return next;
+            });
           }}
         />
       )}

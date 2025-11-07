@@ -60,7 +60,7 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
     const noteJoinSpec = notes_present && userId ? '!inner' : '';
     const imageJoinSpec = images_present && userId ? '!inner' : '!left';
     // Build the select with LEFT JOIN to notes and sticker assignments
-    const selectClause = `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at,
+    const selectClause = `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, owner_user_id,
          note:note${noteJoinSpec}(id, body, artist_user_id),
          sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
          venue_image:venue_image${imageJoinSpec}(id, file_path, file_path_thumb, url, created_at, artist_user_id)`;
@@ -133,11 +133,11 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
   const noteJoin = notes_present && userId ? '!inner' : '';
   const imageJoin = images_present && userId ? '!inner' : '!left';
   const selectClause = userId
-    ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at,
+    ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, owner_user_id,
        note:note${noteJoin}(id, body, artist_user_id),
        sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
        venue_image:venue_image${imageJoin}(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
-    : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at';
+    : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, owner_user_id';
 
   let query = supabase
     .from('venue')
@@ -168,6 +168,28 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
   }
   if (notes_present && userId) {
     query = query.eq('note.artist_user_id', userId);
+  }
+
+  // Ownership filters: only include public (owner_user_id is null) and/or mine (owner_user_id == userId)
+  // If both toggles are on, no restriction; if one off, apply restriction; if both off, force empty result.
+  const showPublic = params.show_public !== false; // default true
+  const showMine = params.show_mine !== false;     // default true
+  if (!showPublic && !showMine) {
+    return { venues: [], total: 0, page: params.page || 1, page_size: params.page_size || 25, total_pages: 0, has_next: false, has_prev: false };
+  }
+  if (userId) {
+    if (showPublic && !showMine) {
+      query = query.is('owner_user_id', null);
+    } else if (!showPublic && showMine) {
+      query = query.eq('owner_user_id', userId);
+    } else {
+      // both true -> no additional where clause (public or mine)
+      // but exclude other users' owned venues
+      query = query.or(`owner_user_id.is.null,owner_user_id.eq.${userId}`);
+    }
+  } else {
+    // unauthenticated: only public venues
+    query = query.is('owner_user_id', null);
   }
 
   // Apply sorting
@@ -220,7 +242,11 @@ async function signUrls(paths: string[]): Promise<Record<string, string>> {
 function transformVenueDataBase(data: any[], userId?: string): any[] {
   return data.map((venue: any) => {
     const result: any = { ...venue };
-
+    if (userId) {
+      result.user_owned = venue.owner_user_id === userId;
+    } else {
+      result.user_owned = false;
+    }
     // Handle notes
     if (userId && venue.note && Array.isArray(venue.note)) {
       const userNote = venue.note.find((n: any) => n.artist_user_id === userId);
@@ -245,6 +271,7 @@ function transformVenueDataBase(data: any[], userId?: string): any[] {
       result.user_stickers = [];
     }
     delete result.sticker_assignment;
+    delete result.owner_user_id;
 
     return result;
   });
@@ -322,11 +349,11 @@ export async function searchVenues(
   const noteJoinS = notes_present && userId ? '!inner' : '';
   const imageJoinS = images_present && userId ? '!inner' : '!left';
   const selectClause = userId
-    ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at,
+    ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, owner_user_id,
        note:note${noteJoinS}(id, body, artist_user_id),
        sticker_assignment(id, sticker_meaning_id, artist_user_id, sticker_meaning(id, label, details, color)),
        venue_image:venue_image${imageJoinS}(id, file_path, file_path_thumb, url, created_at, artist_user_id)`
-    : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at';
+    : 'id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, owner_user_id';
 
   let searchQuery = supabase
     .from('venue')
@@ -342,6 +369,24 @@ export async function searchVenues(
   }
   if (notes_present && userId) {
     searchQuery = searchQuery.eq('note.artist_user_id', userId);
+  }
+
+  // Ownership filters for search path
+  const showPublic = params.show_public !== false;
+  const showMine = params.show_mine !== false;
+  if (!showPublic && !showMine) {
+    return { venues: [], total: 0, page, page_size, total_pages: 0, has_next: false, has_prev: false };
+  }
+  if (userId) {
+    if (showPublic && !showMine) {
+      searchQuery = searchQuery.is('owner_user_id', null);
+    } else if (!showPublic && showMine) {
+      searchQuery = searchQuery.eq('owner_user_id', userId);
+    } else {
+      searchQuery = searchQuery.or(`owner_user_id.is.null,owner_user_id.eq.${userId}`);
+    }
+  } else {
+    searchQuery = searchQuery.is('owner_user_id', null);
   }
 
   const sortColumn = sort === 'locality' ? 'locality' : 'name';
@@ -367,36 +412,3 @@ export async function searchVenues(
   };
 }
 
-// Filters API helper (used by /api/venues OPTIONS)
-export async function getVenueFilters(region: string = 'BOS'): Promise<VenueFilters> {
-  const { data: localityData, error: localityError } = await supabase
-    .from('venue')
-    .select('locality')
-    .eq('region_code', region)
-    .order('locality');
-
-  if (localityError) {
-    throw new Error(`Failed to fetch localities: ${localityError.message}`);
-  }
-
-  const localities = [...new Set(localityData?.map(v => v.locality) || [])];
-
-  const { data: typeData, error: typeError } = await supabase
-    .from('venue')
-    .select('type')
-    .eq('region_code', region)
-    .order('type');
-
-  if (typeError) {
-    throw new Error(`Failed to fetch types: ${typeError.message}`);
-  }
-
-  const types = [...new Set(typeData?.map(v => v.type as VenueType) || [])];
-  const public_transit_options: Array<'yes' | 'partial' | 'no'> = ['yes', 'partial', 'no'];
-
-  return {
-    localities,
-    types,
-    public_transit_options,
-  };
-}

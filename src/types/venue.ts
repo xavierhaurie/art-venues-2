@@ -47,6 +47,7 @@ export interface Venue {
   // New: preloaded artwork thumbnails and count for this venue (current artist)
   images?: Array<{ id: string; url: string; thumb_url?: string; created_at: string }>;
   images_count?: number;
+  user_owned?: boolean; // derived: owner_user_id == current user id
 }
 
 export interface VenueListParams {
@@ -63,6 +64,8 @@ export interface VenueListParams {
   sort_order?: 'asc' | 'desc';
   q?: string; // search query
   sticker_ids?: string[]; // filter by sticker meaning IDs
+  show_public?: boolean; // ownership filter toggle
+  show_mine?: boolean;   // ownership filter toggle
 }
 
 export interface VenueListResponse {
