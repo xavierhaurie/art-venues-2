@@ -15,6 +15,7 @@ export default function VenueModal(props: any) {
   const [mounted, setMounted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<any>(null);
+  const notesTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Image display state
   const [hoveredImageId, setHoveredImageId] = useState<string | null>(null);
@@ -77,12 +78,20 @@ export default function VenueModal(props: any) {
       setLocalNotes(noteBody);
       setOriginalNotes(noteBody);
       setHasUnsavedChanges(false);
+      // Auto-size notes textarea when notes load
+      requestAnimationFrame(() => {
+        const el = notesTextareaRef.current;
+        if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+      });
     }
   }, [venueNote]);
 
   // Track unsaved changes
   useEffect(() => {
     setHasUnsavedChanges(localNotes !== originalNotes);
+    // Auto-size on localNotes change
+    const el = notesTextareaRef.current;
+    if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
   }, [localNotes, originalNotes]);
 
   // Initialize sticker form data with next available color
@@ -554,324 +563,65 @@ export default function VenueModal(props: any) {
             {/* Notes Section */}
             <div style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>My Notes {hasUnsavedChanges && <span style={{ color: '#dc2626', fontSize: '0.875rem', marginLeft: '0.5rem' }}>(Unsaved changes)</span>}</h3>
-              <textarea value={localNotes} onChange={(e) => handleNotesChange(e.target.value)} disabled={isSaving} style={{ width: '100%', minHeight: 200, padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 16, fontFamily: 'inherit', resize: 'vertical', outline: 'none', backgroundColor: isSaving ? '#f9fafb' : 'white' }} placeholder="Add your notes about this venue..." />
+              <textarea
+                ref={notesTextareaRef}
+                value={localNotes}
+                onChange={(e) => {
+                  handleNotesChange(e.target.value);
+                  const el = e.currentTarget;
+                  el.style.height = 'auto';
+                  el.style.height = el.scrollHeight + 'px';
+                }}
+                disabled={isSaving}
+                rows={3}
+                style={{ width: '100%', height: 'auto', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 16, fontFamily: 'inherit', resize: 'none', outline: 'none', backgroundColor: isSaving ? '#f9fafb' : 'white', overflow: 'hidden' }}
+                placeholder="Add your notes about this venue..."
+                onFocus={() => {
+                  const el = notesTextareaRef.current; if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+                }}
+              />
 
-              {/* Reset + Save notes buttons */}
-              <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => { setLocalNotes(originalNotes); setHasUnsavedChanges(false); }}
-                  disabled={isSaving || uploadingCount > 0}
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    backgroundColor: 'white',
-                    color: '#374151',
-                    border: '1px solid #d1d5db',
-                    borderRadius: 6,
-                    fontSize: '0.875rem',
-                    fontWeight: 500,
-                    cursor: (isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  Reset
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={!hasUnsavedChanges || isSaving || uploadingCount > 0}
-                  style={{
-                    padding: '0.4rem 0.75rem',
-                    backgroundColor: (!hasUnsavedChanges || isSaving || uploadingCount > 0) ? '#9ca3af' : '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: 6,
-                    fontSize: '0.875rem',
-                    fontWeight: 500,
-                    cursor: (!hasUnsavedChanges || isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
-                  }}
-                >
+               {/* Reset + Save notes buttons */}
+               <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                 <button
+                   onClick={() => { setLocalNotes(originalNotes); setHasUnsavedChanges(false); }}
+                   disabled={isSaving || uploadingCount > 0}
+                   style={{
+                     padding: '0.4rem 0.75rem',
+                     backgroundColor: 'white',
+                     color: '#374151',
+                     border: '1px solid #d1d5db',
+                     borderRadius: 6,
+                     fontSize: '0.875rem',
+                     fontWeight: 500,
+                     cursor: (isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
+                   }}
+                 >
+                   Reset
+                 </button>
+                 <button
+                   onClick={handleSave}
+                   disabled={!hasUnsavedChanges || isSaving || uploadingCount > 0}
+                   style={{
+                     padding: '0.4rem 0.75rem',
+                     backgroundColor: (!hasUnsavedChanges || isSaving || uploadingCount > 0) ? '#9ca3af' : '#3b82f6',
+                     color: 'white',
+                     border: 'none',
+                     borderRadius: 6,
+                     fontSize: '0.875rem',
+                     fontWeight: 500,
+                     cursor: (!hasUnsavedChanges || isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
+                   }}
+                 >
                   {isSaving ? 'Saving...' : 'Save notes'}
                 </button>
               </div>
             </div>
 
-            {/* Images Section */}
-            <div style={{ marginBottom: '2rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                <h3 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0 }}>Images ({venueImages.length}/20)</h3>
-                {/* Place Upload input/button immediately to the right of the header */}
-                <input ref={fileInputRef} id={`upload-${venue?.id}`} type="file" accept="image/*" multiple onChange={(e) => e.target.files && handleImageUpload(e.target.files)} style={{ display: 'none' }} />
-                <button onClick={() => fileInputRef.current?.click()} disabled={venueImages.length >= 20} style={{ padding: '0.4rem 0.75rem', backgroundColor: venueImages.length >= 20 ? '#9ca3af' : '#3b82f6', color: 'white', border: 'none', borderRadius: 6, fontSize: '0.875rem', cursor: venueImages.length >= 20 ? 'not-allowed' : 'pointer' }}>Upload Images</button>
-              </div>
+          </div> {/* end content container */}
 
-              {/* Thumbnails - wrapping rows, 100px max dimension */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
-                {venueImages.map((image) => (
-                  <div
-                    key={image.id}
-                    style={{ position: 'relative', flex: '0 0 auto' }}
-                    onMouseEnter={() => setHoveredImageId(image.id)}
-                    onMouseLeave={() => setHoveredImageId(null)}
-                    onClick={() => setClickedImageId(image.id)}
-                  >
-                    <img
-                      src={image.url}
-                      alt=""
-                      style={{
-                        width: 100,
-                        height: 100,
-                        objectFit: 'cover',
-                        borderRadius: 6,
-                        cursor: 'pointer',
-                        display: 'block',
-                        border: (hoveredImageId === image.id || clickedImageId === image.id) ? '3px solid #3b82f6' : '1px solid #e5e7eb'
-                      }}
-                    />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteImage(image.id);
-                      }}
-                      style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: 20, height: 20, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      title="Delete image"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {/* Full-size image display area - shows hovered or clicked image, or placeholder */}
-              {venueImages.length > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: 8, marginTop: '0.75rem' }}>
-                  {(hoveredImageId || clickedImageId) ? (
-                    <img
-                      src={venueImages.find(img => img.id === (hoveredImageId || clickedImageId))?.url}
-                      alt="Full size"
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '800px',
-                        width: 'auto',
-                        height: 'auto',
-                        borderRadius: 8,
-                        objectFit: 'contain'
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: '100%',
-                        aspectRatio: '1 / 1',
-                        maxWidth: '800px',
-                        maxHeight: '800px',
-                        backgroundColor: '#d1d5db',
-                        border: '2px dashed #9ca3af',
-                        borderRadius: 8,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '1rem',
-                        color: '#6b7280',
-                        fontWeight: 500
-                      }}
-                    >
-                      Hover over or click a thumbnail
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-             {/* Footer */}
-            <div style={{
-              padding: '1.5rem',
-              borderTop: '1px solid #e5e7eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end'
-            }}>
-              <button
-                onClick={handleClose}
-                disabled={isSaving || uploadingCount > 0}
-                style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                  cursor: (isSaving || uploadingCount > 0) ? 'not-allowed' : 'pointer',
-                  opacity: (isSaving || uploadingCount > 0) ? 0.5 : 1,
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSaving && uploadingCount === 0) {
-                    e.currentTarget.style.backgroundColor = '#2563eb';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSaving && uploadingCount === 0) {
-                    e.currentTarget.style.backgroundColor = '#3b82f6';
-                  }
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Context Menu for Sticker Rename/Delete */}
-      {contextMenu && (
-        <>
-        {/* Invisible overlay to capture outside clicks and right-clicks */}
-        <div
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10001, background: 'transparent' }}
-          onClick={(e) => { e.stopPropagation(); setContextMenu(null); }}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu(null); }}
-        />
-        <div
-           ref={contextMenuRef}
-           style={{
-             position: 'fixed',
-             top: contextMenu.y,
-             left: contextMenu.x,
-             backgroundColor: 'white',
-             border: '1px solid #d1d5db',
-             borderRadius: 6,
-             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-             zIndex: 10002,
-             minWidth: 160,
-             padding: '2px 0',
-             pointerEvents: 'auto'
-           }}
-           onClick={(e) => e.stopPropagation()}
-           onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-           role="menu"
-         >
-           <div
-              onClick={() => {
-                setRenamingSticker(contextMenu.meaning);
-                setRenameLabel(contextMenu.meaning.label);
-                setShowRenameStickerDialog(true);
-                setContextMenu(null);
-              }}
-              style={{
-                padding: '0.5rem 0.75rem',
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                color: '#374151',
-                fontWeight: 500,
-                transition: 'background-color 0.2s',
-                borderBottom: '1px solid #e5e7eb'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              role="menuitem"
-           >
-             Rename
-           </div>
-           <div
-              onClick={() => {
-                handleDeleteStickerMeaning(contextMenu.meaning);
-                setContextMenu(null);
-              }}
-              style={{
-                padding: '0.5rem 0.75rem',
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                color: '#dc2626',
-                fontWeight: 500,
-                transition: 'background-color 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fef2f2'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              role="menuitem"
-           >
-             Delete
-           </div>
-         </div>
-        </>
-        )}
-
-      {/* Create Sticker Dialog */}
-      {showCreateStickerDialog && (
-        <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, backgroundColor:'rgba(0,0,0,0.7)', zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={()=>setShowCreateStickerDialog(false)}>
-          <div onClick={(e)=>e.stopPropagation()} style={{ background:'white', borderRadius:8, padding:24, maxWidth:400, width:'100%', boxShadow:'0 10px 20px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ fontSize:18, fontWeight:600, margin:0, marginBottom:12 }}>Create New Sticker</h3>
-            <div style={{ marginBottom:12 }}>
-              <label style={{ display:'block', fontSize:14, fontWeight:500, marginBottom:6 }}>Label</label>
-              <input type="text" value={stickerFormData.label} onChange={(e)=>setStickerFormData({...stickerFormData, label: e.target.value})} placeholder="Enter sticker label" style={{ width:'100%', padding:12, border:'1px solid #d1d5db', borderRadius:6 }} />
-            </div>
-            <div style={{ marginBottom:12 }}>
-              <label style={{ display:'block', fontSize:14, fontWeight:500, marginBottom:6 }}>Details (optional)</label>
-              <textarea value={stickerFormData.details} onChange={(e)=>setStickerFormData({...stickerFormData, details: e.target.value})} style={{ width:'100%', minHeight:100, padding:12, border:'1px solid #d1d5db', borderRadius:6 }} />
-            </div>
-            <div style={{ marginBottom:12 }}>
-              <label style={{ display:'block', fontSize:14, fontWeight:500, marginBottom:6 }}>Color</label>
-              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <input type="color" value={stickerFormData.color} onChange={(e)=>setStickerFormData({...stickerFormData, color: e.target.value})} style={{ width:40, height:40, border:'none', borderRadius:6 }} />
-                <span style={{ fontSize:12, color:'#6b7280' }}>Pick a color for the sticker</span>
-              </div>
-            </div>
-            <div style={{ display:'flex', justifyContent:'flex-end', gap:12 }}>
-              <button onClick={()=>setShowCreateStickerDialog(false)} style={{ padding:'0.5rem 1.5rem', background:'white', border:'1px solid #d1d5db', borderRadius:6 }}>Cancel</button>
-              <button onClick={handleCreateStickerMeaning} style={{ padding:'0.5rem 1.5rem', background:'#3b82f6', color:'white', border:'none', borderRadius:6 }}>Create Sticker</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rename Sticker Dialog */}
-      {showRenameStickerDialog && renamingSticker && (
-        <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, backgroundColor:'rgba(0,0,0,0.7)', zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={()=>{setShowRenameStickerDialog(false); setRenamingSticker(null); setRenameLabel('');}}>
-          <div onClick={(e)=>e.stopPropagation()} style={{ background:'white', borderRadius:8, padding:24, maxWidth:400, width:'100%', boxShadow:'0 10px 20px rgba(0,0,0,0.1)' }}>
-            <h3 style={{ fontSize:18, fontWeight:600, margin:0, marginBottom:12 }}>Rename Sticker</h3>
-            <div style={{ marginBottom:16 }}>
-              <label style={{ display:'block', fontSize:14, fontWeight:500, marginBottom:6 }}>New Label</label>
-              <input
-                type="text"
-                value={renameLabel}
-                onChange={(e)=>setRenameLabel(e.target.value)}
-                placeholder="Enter new sticker label"
-                style={{ width:'100%', padding:12, border:'1px solid #d1d5db', borderRadius:6 }}
-                maxLength={15}
-                autoFocus
-              />
-              <div style={{ fontSize:12, color:'#6b7280', marginTop:4 }}>
-                {renameLabel.length}/15 characters
-              </div>
-            </div>
-            <div style={{ marginBottom:12, padding:12, backgroundColor:'#f9fafb', borderRadius:6 }}>
-              <div style={{ fontSize:12, fontWeight:500, color:'#6b7280', marginBottom:4 }}>Current name:</div>
-              <div style={{ fontSize:14, color:'#374151' }}>{renamingSticker.label}</div>
-            </div>
-            <div style={{ display:'flex', justifyContent:'flex-end', gap:12 }}>
-              <button
-                onClick={()=>{setShowRenameStickerDialog(false); setRenamingSticker(null); setRenameLabel('');}}
-                style={{ padding:'0.5rem 1.5rem', background:'white', border:'1px solid #d1d5db', borderRadius:6, cursor:'pointer' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRenameStickerMeaning}
-                disabled={!renameLabel.trim() || renameLabel === renamingSticker.label}
-                style={{
-                  padding:'0.5rem 1.5rem',
-                  background: !renameLabel.trim() || renameLabel === renamingSticker.label ? '#9ca3af' : '#3b82f6',
-                  color:'white',
-                  border:'none',
-                  borderRadius:6,
-                  cursor: !renameLabel.trim() || renameLabel === renamingSticker.label ? 'not-allowed' : 'pointer',
-                  opacity: !renameLabel.trim() || renameLabel === renamingSticker.label ? 0.6 : 1
-                }}
-              >
-                Rename
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        </div> {/* end inner modal */}
+      </div> {/* end modal container */}
 
     </>
   );
