@@ -30,6 +30,7 @@ export default function VenueModal(props: any) {
 
   // Context menu state for sticker deletion
   const [contextMenu, setContextMenu] = useState<{x: number, y: number, meaningId: string, meaning: any} | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const [stickerFormData, setStickerFormData] = useState<any>({
     color: '#ADD8E6',
     label: '',
@@ -92,13 +93,36 @@ export default function VenueModal(props: any) {
     }));
   }, [stickerMeanings]);
 
-  // Close context menu on click anywhere
+  // Robust: close context menu when clicking outside, right-clicking elsewhere, pressing Escape, or on scroll
   useEffect(() => {
-    const handleClick = () => setContextMenu(null);
-    if (contextMenu) {
-      document.addEventListener('click', handleClick);
-      return () => document.removeEventListener('click', handleClick);
-    }
+    if (!contextMenu) return;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    const handleContextMenu = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenu(null);
+    };
+    const handleScroll = () => setContextMenu(null);
+
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('scroll', handleScroll as EventListener);
+    };
   }, [contextMenu]);
 
   const loadNotes = async () => {
@@ -350,71 +374,38 @@ export default function VenueModal(props: any) {
     } catch (err) { console.error('Failed to create sticker:', err); alert('Failed to create sticker'); }
   };
 
-  // handleDeleteStickerMeaning supports force delete
   const handleDeleteStickerMeaning = async (meaning: any) => {
-    if (!confirm(`Delete sticker "${meaning.label}"? This will also remove all assignments of this sticker to venues.`)) return;
+    const confirmed = confirm(`Delete sticker "${meaning.label}"? This will remove it from your stickers list and from any venues where it's assigned.`);
+    if (!confirmed) return;
     try {
-      const response = await fetch(`/api/stickers/meanings/delete?id=${meaning.id}`, {
-        method: 'POST'
-      });
-
-      if (response.ok) {
+      // Perform a single, authoritative delete with force=true to avoid multi-step confirms
+      const forceResp = await fetch(`/api/stickers/meanings/delete?id=${meaning.id}&force=true`, { method: 'POST' });
+      if (forceResp.ok) {
+        const data = await forceResp.json().catch(() => ({}));
         await loadStickerMeanings();
         await loadVenueStickers();
         if (onStickerUpdate) {
-          console.debug('VenueModal: calling onStickerUpdate after delete (no assignments)', venue.id);
-          onStickerUpdate(venue.id);
+          const affected: string[] = Array.isArray((data as any).affectedVenueIds) ? (data as any).affectedVenueIds : [];
+          if (affected.length > 0) {
+            affected.forEach((vid) => { try { onStickerUpdate(vid); } catch {} });
+          } else {
+            try { onStickerUpdate(venue.id); } catch {}
+          }
         }
         return;
       }
 
-      const errorData = await response.json();
-      if (errorData.hasAssignments) {
-        const confirmed = confirm('This sticker is assigned to venues. Delete all assignments and the sticker?\n\nThis will remove the sticker from all venues permanently.');
-        if (!confirmed) return;
-
-        // Attempt force delete
-        try {
-          const forceResp = await fetch(`/api/stickers/meanings/delete?id=${meaning.id}&force=true`, {
-            method: 'POST'
-          });
-
-          if (forceResp.ok) {
-            // Server returns affectedVenueIds for force deletes
-            const data = await forceResp.json();
-            await loadStickerMeanings();
-            await loadVenueStickers();
-
-            if (onStickerUpdate) {
-              // If server provided a list of affected venue ids, notify parent for each
-              const affected: string[] = Array.isArray(data.affectedVenueIds) ? data.affectedVenueIds : [];
-              console.debug('VenueModal: force delete affectedVenueIds=', affected);
-
-              if (affected.length > 0) {
-                affected.forEach((vid) => {
-                  try {
-                    console.debug('VenueModal: calling onStickerUpdate for affected venue', vid);
-                    onStickerUpdate(vid);
-                  } catch (e) { console.error('onStickerUpdate failed for venue', vid, e); }
-                });
-              } else {
-                // Fallback: refresh current venue
-                try { console.debug('VenueModal: force delete returned no ids, falling back to current venue', venue.id); onStickerUpdate(venue.id); } catch (e) { console.error('onStickerUpdate failed for current venue', e); }
-              }
-            }
-
-            return;
-          }
-
-          const forceData = await forceResp.json();
-          alert(forceData.error || 'Failed to force delete sticker');
-        } catch (err) {
-          console.error('Force delete failed:', err);
-          alert('Failed to force delete sticker');
-        }
-      } else {
-        alert(errorData.error || 'Failed to delete sticker');
+      // If force path failed (unexpected), try non-force once and surface server error
+      const fallback = await fetch(`/api/stickers/meanings/delete?id=${meaning.id}`, { method: 'POST' });
+      if (fallback.ok) {
+        await loadStickerMeanings();
+        await loadVenueStickers();
+        try { onStickerUpdate && onStickerUpdate(venue.id); } catch {}
+        return;
       }
+
+      const errData = await fallback.json().catch(() => ({}));
+      alert(errData.error || (errData.message) || 'Failed to delete sticker');
     } catch (error) {
       console.error('Failed to delete sticker:', error);
       alert('Failed to delete sticker');
@@ -522,6 +513,7 @@ export default function VenueModal(props: any) {
                       onClick={() => handleAssignSticker(meaning.id)}
                       onContextMenu={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         setContextMenu({ x: e.clientX, y: e.clientY, meaningId: meaning.id, meaning });
                       }}
                       style={{
@@ -729,64 +721,78 @@ export default function VenueModal(props: any) {
         </div>
       </div>
 
-      {/* Context Menu for Sticker Deletion */}
+      {/* Context Menu for Sticker Rename/Delete */}
       {contextMenu && (
+        <>
+        {/* Invisible overlay to capture outside clicks and right-clicks */}
         <div
-          style={{
-            position: 'fixed',
-            top: contextMenu.y,
-            left: contextMenu.x,
-            backgroundColor: 'white',
-            border: '1px solid #d1d5db',
-            borderRadius: 6,
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-            zIndex: 10002,
-            minWidth: 120,
-            overflow: 'hidden'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div
-            onClick={() => {
-              setRenamingSticker(contextMenu.meaning);
-              setRenameLabel(contextMenu.meaning.label);
-              setShowRenameStickerDialog(true);
-              setContextMenu(null);
-            }}
-            style={{
-              padding: '0.5rem 0.75rem',
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              color: '#374151',
-              fontWeight: 500,
-              transition: 'background-color 0.2s',
-              borderBottom: '1px solid #e5e7eb'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            Rename
-          </div>
-          <div
-            onClick={() => {
-              handleDeleteStickerMeaning(contextMenu.meaning);
-              setContextMenu(null);
-            }}
-            style={{
-              padding: '0.5rem 0.75rem',
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              color: '#dc2626',
-              fontWeight: 500,
-              transition: 'background-color 0.2s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fef2f2'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            Remove
-          </div>
-        </div>
-      )}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10001, background: 'transparent' }}
+          onClick={(e) => { e.stopPropagation(); setContextMenu(null); }}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu(null); }}
+        />
+        <div
+           ref={contextMenuRef}
+           style={{
+             position: 'fixed',
+             top: contextMenu.y,
+             left: contextMenu.x,
+             backgroundColor: 'white',
+             border: '1px solid #d1d5db',
+             borderRadius: 6,
+             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+             zIndex: 10002,
+             minWidth: 160,
+             padding: '2px 0',
+             pointerEvents: 'auto'
+           }}
+           onClick={(e) => e.stopPropagation()}
+           onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+           role="menu"
+         >
+           <div
+              onClick={() => {
+                setRenamingSticker(contextMenu.meaning);
+                setRenameLabel(contextMenu.meaning.label);
+                setShowRenameStickerDialog(true);
+                setContextMenu(null);
+              }}
+              style={{
+                padding: '0.5rem 0.75rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                color: '#374151',
+                fontWeight: 500,
+                transition: 'background-color 0.2s',
+                borderBottom: '1px solid #e5e7eb'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              role="menuitem"
+           >
+             Rename
+           </div>
+           <div
+              onClick={() => {
+                handleDeleteStickerMeaning(contextMenu.meaning);
+                setContextMenu(null);
+              }}
+              style={{
+                padding: '0.5rem 0.75rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                color: '#dc2626',
+                fontWeight: 500,
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fef2f2'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              role="menuitem"
+           >
+             Delete
+           </div>
+         </div>
+        </>
+        )}
 
       {/* Create Sticker Dialog */}
       {showCreateStickerDialog && (

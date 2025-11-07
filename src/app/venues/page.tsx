@@ -664,17 +664,9 @@ export default function VenuesPage() {
     return (
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <svg width="56" height="56" viewBox="0 0 38 38" stroke="#3b82f6" aria-label="Loading initial venues">
-            <g fill="none" fillRule="evenodd">
-              <g transform="translate(1 1)" strokeWidth="3">
-                <circle strokeOpacity=".2" cx="18" cy="18" r="18" />
-                <path d="M36 18c0-9.94-8.06-18-18-18">
-                  <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="1s" repeatCount="indefinite" />
-                </path>
-              </g>
-            </g>
-          </svg>
+          <div aria-label="Loading initial venues" style={{ width: 56, height: 56, border: '5px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'nw5spin 0.9s linear infinite', boxShadow: '0 0 0 2px rgba(59,130,246,0.15) inset' }} />
           <div style={{ marginTop: 12, color: '#374151', fontSize: 16 }}>Loading venues…</div>
+          <style jsx global>{`@keyframes nw5spin{to{transform:rotate(360deg)}}`}</style>
         </div>
       </div>
     );
@@ -682,24 +674,17 @@ export default function VenuesPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 font-sans" style={{ margin: '2rem', overflowX: 'hidden' }}>
+      <style jsx global>{`@keyframes nw5spin{to{transform:rotate(360deg)}}`}</style>
       {/* Page-level loading overlay centered on the viewport when refreshing (not initial load) */}
       {loading && venues.length > 0 && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.6)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-           <div style={{ textAlign: 'center' }}>
-             <svg width="48" height="48" viewBox="0 0 38 38" stroke="#3b82f6" aria-label="Loading">
-               <g fill="none" fillRule="evenodd">
-                 <g transform="translate(1 1)" strokeWidth="3">
-                   <circle strokeOpacity=".2" cx="18" cy="18" r="18" />
-                   <path d="M36 18c0-9.94-8.06-18-18-18">
-                     <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="1s" repeatCount="indefinite" />
-                   </path>
-                 </g>
-               </g>
-             </svg>
-             <div style={{ marginTop: 10, color: '#374151', fontSize: 14 }}>Loading…</div>
-           </div>
-         </div>
-       )}
+          <div style={{ textAlign: 'center' }}>
+            <div aria-label="Loading" style={{ width: 48, height: 48, border: '4px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'nw5spin 0.9s linear infinite', boxShadow: '0 0 0 2px rgba(59,130,246,0.12) inset' }} />
+            <div style={{ marginTop: 10, color: '#374151', fontSize: 14 }}>Loading…</div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-6">{formatRegionsTitle(regionNames)}</h1>
 
@@ -963,16 +948,7 @@ export default function VenuesPage() {
         <div ref={observerTarget} className="h-10 flex items-center justify-center mt-4">
           {loadingMore.current && hasMore && (
             <div className="text-gray-500 text-sm flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 38 38" stroke="#6b7280" aria-label="Loading more">
-                <g fill="none" fillRule="evenodd">
-                  <g transform="translate(1 1)" strokeWidth="3">
-                    <circle strokeOpacity=".2" cx="18" cy="18" r="18" />
-                    <path d="M36 18c0-9.94-8.06-18-18-18">
-                      <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="1s" repeatCount="indefinite" />
-                    </path>
-                  </g>
-                </g>
-              </svg>
+              <span aria-label="Loading more" style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid #6b7280', borderTopColor: 'transparent', borderRadius: '50%', animation: 'nw5spin 0.9s linear infinite', verticalAlign: 'middle' }} />
               Loading more venues...
             </div>
           )}
