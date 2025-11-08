@@ -736,7 +736,7 @@ export default function VenuesPage() {
             onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = '#2563eb'; }}
             onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = '#3b82f6'; }}
           >
-            Add Venue
+            + Add Venue
           </button>
           <div style={{ fontSize:13, color:'#374151' }}>
             You have {typeof credits==='number' ? credits : 0} credits. <span style={{ fontStyle:'italic', color:'#6b7280' }}>Earn credits for your venues when we make them accessible to everyone</span>

@@ -23,9 +23,11 @@ function ModalPortal({ children }: { children: React.ReactNode }) {
 function VenueModalUI(props: any) {
   const {
     venue, mode, localNotes, originalNotes, hasUnsavedChanges, isSaving, uploadingCount, venueImages, stickerMeanings, assignedStickers, assignedStickerIds, contextMenu, createData, createErrors, creating, creationBorderColor, creationBadge,
+    editData, editErrors, editingSaving, handleEditSubmit, setEditData,
     // handlers
     handleClose, handleKeyDown, handleNotesChange, handleSave, handleCreateSubmit, handleAssignSticker, handleUnassignSticker, handleDeleteImage, handleImageUpload, handleCreateStickerMeaning, handleDeleteStickerMeaning, handleRenameStickerMeaning,
     setContextMenu, setCreateData, setShowCreateStickerDialog, setShowRenameStickerDialog, setRenamingSticker, setRenameLabel, renamingSticker, renameLabel, showCreateStickerDialog, showRenameStickerDialog,
+    stickerFormData, setStickerFormData,
     notesTextareaRef, fileInputRef, contextMenuRef, onStickerUpdate,
     // picker state
     showLocalitySelect, setShowLocalitySelect, localities, showRegionSelect, setShowRegionSelect, regions,
@@ -96,11 +98,6 @@ function VenueModalUI(props: any) {
                       {createData.locality ? createData.locality : 'Select locality'}
                     </button>
                     {createErrors.includes('locality') && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 2 }}>Required</div>}
-                    {createData.locality && (
-                      <div style={{ marginTop: 4 }}>
-                        <button type="button" onClick={() => setCreateData({ ...createData, locality: '' })} style={{ fontSize: 12, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Clear selection</button>
-                      </div>
-                    )}
                   </div>
                   {/* Row: Address */}
                   <div style={{ gridColumn: '1 / -1' }}>
@@ -144,7 +141,100 @@ function VenueModalUI(props: any) {
                     <input value={createData.instagram} onChange={e => setCreateData({ ...createData, instagram: e.target.value })} style={{ width: '100%', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6 }} />
                   </div>
                 </div>
+              ) : venue?.user_owned ? (
+                // Editable fields for user-owned venues
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', columnGap: '1rem', rowGap: '0.85rem', fontSize: '0.875rem' }}>
+                  {/* Row: Name */}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Name *</label>
+                    <input value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} style={{ width: '100%', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6 }} />
+                    {editErrors.includes('name') && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 2 }}>Required</div>}
+                  </div>
+                  {/* Row: Type */}
+                  <div>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Type *</label>
+                    <button type="button" onClick={() => setShowTypeSelect(true)} style={{ width: '100%', textAlign: 'left', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6, backgroundColor: '#ffffff', cursor: 'pointer', fontSize: '0.875rem' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}>
+                      {editData.type || 'Select type'}
+                    </button>
+                    {editErrors.includes('type') && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 2 }}>Required</div>}
+                  </div>
+                  {/* Row: Region picker */}
+                  <div>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Region Code *</label>
+                    <button type="button" onClick={() => setShowRegionSelect(true)} style={{ width: '100%', textAlign: 'left', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6, backgroundColor: '#ffffff', cursor: 'pointer', fontSize: '0.875rem' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}>
+                      {editData.region_code ? editData.region_code : 'Select region'}
+                    </button>
+                    {editErrors.includes('region_code') && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 2 }}>Required</div>}
+                  </div>
+                  {/* Row: Locality picker */}
+                  <div>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Locality *</label>
+                    <button type="button" onClick={() => setShowLocalitySelect(true)} style={{ width: '100%', textAlign: 'left', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6, backgroundColor: '#ffffff', cursor: 'pointer', fontSize: '0.875rem' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}>
+                      {editData.locality ? editData.locality : 'Select locality'}
+                    </button>
+                    {editErrors.includes('locality') && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 2 }}>Required</div>}
+                  </div>
+                  {/* Row: Address */}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Address *</label>
+                    <input value={editData.address} onChange={e => setEditData({ ...editData, address: e.target.value })} style={{ width: '100%', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6 }} />
+                    {editErrors.includes('address') && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 2 }}>Required</div>}
+                  </div>
+                  {/* Row: Website */}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Website URL *</label>
+                    <input value={editData.website_url} onChange={e => setEditData({ ...editData, website_url: e.target.value })} placeholder="https://" style={{ width: '100%', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6 }} />
+                    {editErrors.includes('website_url') && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 2 }}>Required</div>}
+                  </div>
+                  {/* Row: Transit + Map */}
+                  <div>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Public Transit</label>
+                    <input value={editData.public_transit} onChange={e => setEditData({ ...editData, public_transit: e.target.value })} style={{ width: '100%', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Map Link</label>
+                    <input value={editData.map_link} onChange={e => setEditData({ ...editData, map_link: e.target.value })} style={{ width: '100%', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6 }} />
+                  </div>
+                  {/* Row: Artist Summary */}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Artist Summary</label>
+                    <textarea value={editData.artist_summary} onChange={e => setEditData({ ...editData, artist_summary: e.target.value })} style={{ width: '100%', minHeight: 90, padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6, resize: 'vertical' }} />
+                  </div>
+                  {/* Row: Visitor Summary */}
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Visitor Summary</label>
+                    <textarea value={editData.visitor_summary} onChange={e => setEditData({ ...editData, visitor_summary: e.target.value })} style={{ width: '100%', minHeight: 90, padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6, resize: 'vertical' }} />
+                  </div>
+                  {/* Row: Facebook */}
+                  <div>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Facebook</label>
+                    <input value={editData.facebook} onChange={e => setEditData({ ...editData, facebook: e.target.value })} style={{ width: '100%', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6 }} />
+                  </div>
+                  {/* Row: Instagram */}
+                  <div>
+                    <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Instagram</label>
+                    <input value={editData.instagram} onChange={e => setEditData({ ...editData, instagram: e.target.value })} style={{ width: '100%', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6 }} />
+                  </div>
+                  {/* Save button */}
+                  <div style={{ gridColumn: '1 / -1', marginTop: '0.5rem' }}>
+                    <button
+                      onClick={handleEditSubmit}
+                      disabled={editingSaving}
+                      style={{
+                        padding: '0.6rem 1.25rem',
+                        backgroundColor: editingSaving ? '#9ca3af' : '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 6,
+                        fontSize: '0.875rem',
+                        fontWeight: 600,
+                        cursor: editingSaving ? 'not-allowed' : 'pointer'
+                      }}
+                    >{editingSaving ? 'Saving...' : 'Save Venue Details'}</button>
+                  </div>
+                </div>
               ) : (
+                // Read-only view for public venues
                 <div style={{ fontSize: '0.875rem', lineHeight: 1.6 }}>
                   <div style={{ marginBottom: '0.5rem' }}><strong>Name:</strong> {venue?.name}</div>
                   <div style={{ marginBottom: '0.5rem' }}><strong>Type:</strong> {venue?.type}</div>
@@ -172,7 +262,7 @@ function VenueModalUI(props: any) {
                 <div style={{ marginBottom: '1rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem' }}>
                     <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>Available:</span>
-                    <button onClick={() => setShowCreateStickerDialog(true)} style={{ padding: '0.25rem 0.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: 4, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><span style={{ fontSize: '0.875rem' }}>+</span> New</button>
+                    <button onClick={() => setShowCreateStickerDialog(true)} style={{ padding: '0.25rem 0.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: 4, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><span style={{ fontSize: '0.875rem' }}>+</span> Add Sticker</button>
                     <span style={{ fontSize: '0.75rem', color: '#6b7280', fontStyle: 'italic' }}>Right-click to remove</span>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', minHeight: 32 }}>
@@ -543,6 +633,137 @@ function VenueModalUI(props: any) {
           onClose={() => setShowTypeSelect(false)}
         />
       )}
+
+      {/* Type picker in edit mode for user-owned venues */}
+      {mode === 'view' && venue?.user_owned && showTypeSelect && (
+        <TypePickerModal
+          selectedType={editData.type}
+          onSelectType={(type: string) => {
+            setEditData({ ...editData, type });
+          }}
+          onClose={() => setShowTypeSelect(false)}
+        />
+      )}
+
+      {/* Locality picker in edit mode for user-owned venues */}
+      {mode === 'view' && venue?.user_owned && showLocalitySelect && (
+        <LocalityPickerModal
+          localities={localities}
+          selectedLocalities={editData.locality ? [editData.locality] : []}
+          singleSelect
+          onToggleLocality={(name: string) => {
+            if (!name) {
+              setEditData({ ...editData, locality: '' });
+            } else {
+              setEditData({ ...editData, locality: name });
+              setShowLocalitySelect(false);
+            }
+          }}
+          onClear={() => { setEditData({ ...editData, locality: '' }); }}
+          onClose={() => setShowLocalitySelect(false)}
+        />
+      )}
+
+      {/* Region picker in edit mode for user-owned venues */}
+      {mode === 'view' && venue?.user_owned && showRegionSelect && (
+        <LocalityPickerModal
+          title="Select Region"
+          localities={regions.map(r => ({ id: r.id, name: r.code ? `${r.code} — ${r.name}` : r.name }))}
+          selectedLocalities={editData.region_code ? [editData.region_code] : []}
+          singleSelect
+          onToggleLocality={(text: string) => {
+            if (!text) {
+              setEditData({ ...editData, region_code: '' });
+            } else {
+              const code = text.split(' — ')[0];
+              setEditData({ ...editData, region_code: code });
+              setShowRegionSelect(false);
+            }
+          }}
+          onClear={() => { setEditData({ ...editData, region_code: '' }); }}
+          onClose={() => setShowRegionSelect(false)}
+        />
+      )}
+
+      {/* Create Sticker Dialog */}
+      {showCreateStickerDialog && (
+        <>
+          <div
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10000 }}
+            onClick={() => setShowCreateStickerDialog(false)}
+          />
+          <div
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001, pointerEvents: 'none' }}
+          >
+            <div
+              style={{ backgroundColor: 'white', borderRadius: 8, width: '100%', maxWidth: '28rem', display: 'flex', flexDirection: 'column', pointerEvents: 'auto', fontFamily: 'Arial, Helvetica, sans-serif' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>Add Sticker</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateStickerDialog(false)}
+                  style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '2rem', fontWeight: 'bold', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+                >
+                  ×
+                </button>
+              </div>
+              <div style={{ padding: '1.5rem' }}>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ fontWeight: 600, display: 'block', marginBottom: 4, fontSize: '0.875rem' }}>Label *</label>
+                  <input
+                    value={stickerFormData.label}
+                    onChange={(e) => setStickerFormData({ ...stickerFormData, label: e.target.value })}
+                    maxLength={15}
+                    placeholder="Max 15 characters"
+                    style={{ width: '100%', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6, fontSize: '0.875rem' }}
+                  />
+                </div>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ fontWeight: 600, display: 'block', marginBottom: 4, fontSize: '0.875rem' }}>Color</label>
+                  <input
+                    type="color"
+                    value={stickerFormData.color}
+                    onChange={(e) => setStickerFormData({ ...stickerFormData, color: e.target.value })}
+                    style={{ width: '100%', height: '40px', padding: '0.25rem', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer' }}
+                  />
+                </div>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ fontWeight: 600, display: 'block', marginBottom: 4, fontSize: '0.875rem' }}>Details (optional)</label>
+                  <textarea
+                    value={stickerFormData.details}
+                    onChange={(e) => setStickerFormData({ ...stickerFormData, details: e.target.value })}
+                    maxLength={1000}
+                    placeholder="Additional notes about this sticker"
+                    style={{ width: '100%', minHeight: 80, padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6, fontSize: '0.875rem', resize: 'vertical' }}
+                  />
+                </div>
+              </div>
+              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateStickerDialog(false)}
+                  style={{ padding: '0.5rem 1rem', backgroundColor: '#e5e7eb', color: '#374151', border: 'none', borderRadius: 6, fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d1d5db'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#e5e7eb'}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateStickerMeaning}
+                  style={{ padding: '0.5rem 1rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: 6, fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                >
+                  Add Sticker
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -747,8 +968,35 @@ export default function VenueModal(props: any) {
   const [showRegionSelect, setShowRegionSelect] = useState(false);
   const [showTypeSelect, setShowTypeSelect] = useState(false);
 
+  // Edit mode form state for user-owned venues
+  const [editData, setEditData] = useState<any>({
+    name: '', type: '', region_code: '', locality: '', address: '', website_url: '', public_transit: '', map_link: '', artist_summary: '', visitor_summary: '', facebook: '', instagram: ''
+  });
+  const [editingSaving, setEditingSaving] = useState(false);
+  const [editErrors, setEditErrors] = useState<string[]>([]);
+
+  // Initialize edit data when venue loads
   useEffect(() => {
-    if (mode !== 'create') return;
+    if (mode === 'view' && venue?.user_owned) {
+      setEditData({
+        name: venue.name || '',
+        type: venue.type || '',
+        region_code: venue.region_code || '',
+        locality: venue.locality || '',
+        address: venue.address || '',
+        website_url: venue.website_url || '',
+        public_transit: venue.public_transit || '',
+        map_link: venue.map_link || '',
+        artist_summary: venue.artist_summary || '',
+        visitor_summary: venue.visitor_summary || '',
+        facebook: venue.facebook || '',
+        instagram: venue.instagram || ''
+      });
+    }
+  }, [venue, mode]);
+
+  useEffect(() => {
+    if (mode !== 'create' && !(mode === 'view' && venue?.user_owned)) return;
     const loadLocalities = async () => {
       try {
         const resp = await fetch('/api/localities');
@@ -757,7 +1005,7 @@ export default function VenueModal(props: any) {
           setLocalities(data.localities || []);
         }
       } catch (e) {
-        console.warn('Failed to load localities for create venue', e);
+        console.warn('Failed to load localities', e);
       }
     };
     const loadRegions = async () => {
@@ -769,7 +1017,7 @@ export default function VenueModal(props: any) {
           setRegions(list);
         }
       } catch (e) {
-        console.warn('Failed to load regions for create venue', e);
+        console.warn('Failed to load regions', e);
       }
     };
     loadLocalities();
@@ -813,6 +1061,46 @@ export default function VenueModal(props: any) {
 
   const creationBorderColor = userRole === 'admin' ? '#3b82f6' : '#10b981';
   const creationBadge = userRole === 'admin' ? 'Public (admin)' : 'Mine';
+
+  // Handler for saving edited venue data
+  const handleEditSubmit = async () => {
+    const errors: string[] = [];
+    if (!editData.name?.trim()) errors.push('name');
+    if (!editData.type?.trim()) errors.push('type');
+    if (!editData.region_code?.trim()) errors.push('region_code');
+    if (!editData.locality?.trim()) errors.push('locality');
+    if (!editData.address?.trim()) errors.push('address');
+    if (!editData.website_url?.trim()) errors.push('website_url');
+    setEditErrors(errors);
+    if (errors.length > 0) {
+      alert('Please fill in all required fields (*)');
+      return;
+    }
+    setEditingSaving(true);
+    try {
+      const response = await fetch(`/api/venues/${venue.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editData)
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update venue');
+      }
+      alert('Venue updated successfully');
+      // Reload venue data
+      const reloadResponse = await fetch(`/api/venues/${venue.id}`);
+      if (reloadResponse.ok) {
+        const data = await reloadResponse.json();
+        // Update local venue object if needed (could trigger parent refresh)
+        if (props.onVenueUpdated) props.onVenueUpdated(data);
+      }
+    } catch (e: any) {
+      alert(e?.message || 'Failed to update venue');
+    } finally {
+      setEditingSaving(false);
+    }
+  };
 
   const handleClose = () => {
     if (mode === 'create') {
@@ -1042,6 +1330,10 @@ export default function VenueModal(props: any) {
         createData={createData}
         createErrors={createErrors}
         creating={creating}
+        editData={editData}
+        editErrors={editErrors}
+        editingSaving={editingSaving}
+        setEditData={setEditData}
         creationBorderColor={creationBorderColor}
         creationBadge={creationBadge}
         handleClose={handleClose}
@@ -1049,6 +1341,7 @@ export default function VenueModal(props: any) {
         handleNotesChange={handleNotesChange}
         handleSave={handleSave}
         handleCreateSubmit={handleCreateSubmit}
+        handleEditSubmit={handleEditSubmit}
         handleAssignSticker={handleAssignSticker}
         handleUnassignSticker={handleUnassignSticker}
         handleDeleteImage={handleDeleteImage}
@@ -1066,6 +1359,8 @@ export default function VenueModal(props: any) {
         renameLabel={renameLabel}
         showCreateStickerDialog={showCreateStickerDialog}
         showRenameStickerDialog={showRenameStickerDialog}
+        stickerFormData={stickerFormData}
+        setStickerFormData={setStickerFormData}
         notesTextareaRef={notesTextareaRef}
         fileInputRef={fileInputRef}
         contextMenuRef={contextMenuRef}
