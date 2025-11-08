@@ -36,6 +36,7 @@ function VenueModalUI(props: any) {
     hoveredImageId, setHoveredImageId, clickedImageId, setClickedImageId,
     // deleting state for sticker context menu
     deletingStickerId,
+    loadingStickerMeanings, loadingAssignedStickers, // NEW
   } = props;
 
   return (
@@ -264,50 +265,72 @@ function VenueModalUI(props: any) {
                 <div style={{ marginBottom: '1rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem', gap: '0.75rem' }}>
                     <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#374151' }}>Available:</span>
-                    <button onClick={() => setShowCreateStickerDialog(true)} style={{ padding: '0.25rem 0.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: 4, fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><span style={{ fontSize: '0.875rem' }}>+</span> Add Sticker</button>
+                    <button onClick={() => setShowCreateStickerDialog(true)} disabled={loadingStickerMeanings} style={{ padding: '0.25rem 0.5rem', backgroundColor: loadingStickerMeanings ? '#9ca3af' : '#3b82f6', color: 'white', border: 'none', borderRadius: 4, fontSize: '0.75rem', cursor: loadingStickerMeanings ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <span style={{ fontSize: '0.875rem' }}>+</span> Add Sticker
+                    </button>
                     <span style={{ fontSize: '0.75rem', color: '#6b7280', fontStyle: 'italic' }}>Right-click to remove</span>
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', minHeight: 32 }}>
-                    {(stickerMeanings || []).map((meaning) => (
-                      <div
-                        key={meaning.id}
-                        onClick={() => handleAssignSticker(meaning.id)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setContextMenu({ x: e.clientX, y: e.clientY, meaningId: meaning.id, meaning });
-                        }}
-                        style={{
-                          position: 'relative',
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '0.375rem 0.75rem',
-                          backgroundColor: meaning.color,
-                          borderRadius: 6,
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                          cursor: 'pointer',
-                          opacity: assignedStickerIds.has(meaning.id) ? 0.5 : 1,
-                          border: '1px solid rgba(0,0,0,0.1)'
-                        }}
-                        title={meaning.details || meaning.label}
-                      >
-                        <span>{meaning.label}</span>
+                  <div style={{ minHeight: 32 }}>
+                    {loadingStickerMeanings ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.75rem', color: '#374151' }}>
+                        <span style={{ width: 20, height: 20, border: '3px solid #93c5fd', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'nw5spin 0.7s linear infinite' }} />
+                        Loading stickers...
                       </div>
-                    ))}
+                    ) : (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        {(stickerMeanings || []).map((meaning) => (
+                          <div
+                            key={meaning.id}
+                            onClick={() => handleAssignSticker(meaning.id)}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setContextMenu({ x: e.clientX, y: e.clientY, meaningId: meaning.id, meaning });
+                            }}
+                            style={{
+                              position: 'relative',
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '0.375rem 0.75rem',
+                              backgroundColor: meaning.color,
+                              borderRadius: 6,
+                              fontSize: '0.75rem',
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                              opacity: assignedStickerIds.has(meaning.id) ? 0.5 : 1,
+                              border: '1px solid rgba(0,0,0,0.1)'
+                            }}
+                            title={meaning.details || meaning.label}
+                          >
+                            <span>{meaning.label}</span>
+                          </div>
+                        ))}
+                        {stickerMeanings.length === 0 && <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>No stickers defined yet.</div>}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Assigned Stickers Row */}
                 <div>
                   <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>Assigned to this venue:</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', minHeight: 32 }}>
-                    {(assignedStickers || []).map((sticker) => (
-                      <div key={sticker.id} style={{ position: 'relative', display: 'flex', alignItems: 'center', padding: '0.375rem 0.75rem', backgroundColor: sticker.color, borderRadius: 6, fontSize: '0.75rem', fontWeight: 500, border: '1px solid rgba(0,0,0,0.1)' }} title={sticker.details || sticker.label}>
-                        <span>{sticker.label}</span>
-                        <button onClick={() => handleUnassignSticker(sticker.sticker_meaning_id)} style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '50%', width: 16, height: 16, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                  <div style={{ minHeight: 32 }}>
+                    {loadingAssignedStickers ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.75rem', color: '#374151' }}>
+                        <span style={{ width: 20, height: 20, border: '3px solid #93c5fd', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'nw5spin 0.7s linear infinite' }} />
+                        Loading assigned stickers...
                       </div>
-                    ))}
+                    ) : (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        {(assignedStickers || []).map((sticker) => (
+                          <div key={sticker.id} style={{ position: 'relative', display: 'flex', alignItems: 'center', padding: '0.375rem 0.75rem', backgroundColor: sticker.color, borderRadius: 6, fontSize: '0.75rem', fontWeight: 500, border: '1px solid rgba(0,0,0,0.1)' }} title={sticker.details || sticker.label}>
+                            <span>{sticker.label}</span>
+                            <button onClick={() => handleUnassignSticker(sticker.sticker_meaning_id)} style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '50%', width: 16, height: 16, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                          </div>
+                        ))}
+                        {assignedStickers.length === 0 && <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>No stickers assigned.</div>}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -871,6 +894,8 @@ export default function VenueModal(props: any) {
   // Sticker-related state
   const [stickerMeanings, setStickerMeanings] = useState<any[]>([]);
   const [assignedStickers, setAssignedStickers] = useState<any[]>([]);
+  const [loadingStickerMeanings, setLoadingStickerMeanings] = useState(false); // NEW
+  const [loadingAssignedStickers, setLoadingAssignedStickers] = useState(false); // NEW
   const [showCreateStickerDialog, setShowCreateStickerDialog] = useState(false);
   const [showRenameStickerDialog, setShowRenameStickerDialog] = useState(false);
   const [renamingSticker, setRenamingSticker] = useState<any | null>(null);
@@ -988,6 +1013,7 @@ export default function VenueModal(props: any) {
 
   const loadStickerMeanings = async () => {
     try {
+      setLoadingStickerMeanings(true); // NEW
       const response = await fetch('/api/stickers/meanings');
       if (response.ok) {
         const data = await response.json();
@@ -995,11 +1021,12 @@ export default function VenueModal(props: any) {
       }
     } catch (err) {
       console.error('Failed to load sticker meanings:', err);
-    }
+    } finally { setLoadingStickerMeanings(false); } // NEW
   };
 
   const loadVenueStickers = async () => {
     try {
+      setLoadingAssignedStickers(true); // NEW
       const response = await fetch(`/api/venues/${venue.id}/stickers`);
       if (response.ok) {
         const data = await response.json();
@@ -1007,7 +1034,7 @@ export default function VenueModal(props: any) {
       }
     } catch (err) {
       console.error('Failed to load venue stickers:', err);
-    }
+    } finally { setLoadingAssignedStickers(false); } // NEW
   };
 
   const handleNotesChange = (value: any) => setLocalNotes(value);
@@ -1407,6 +1434,8 @@ export default function VenueModal(props: any) {
         venueImages={venueImages}
         stickerMeanings={stickerMeanings}
         assignedStickers={assignedStickers}
+        loadingStickerMeanings={loadingStickerMeanings} // NEW
+        loadingAssignedStickers={loadingAssignedStickers} // NEW
         assignedStickerIds={assignedStickerIds}
         contextMenu={contextMenu}
         createData={createData}
