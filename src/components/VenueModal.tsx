@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 import { useVenueStore } from '@/lib/store/venueStore';
 import { compressImage, validateImageFile } from '@/lib/imageUtils';
 import LocalityPickerModal from '@/components/LocalityPickerModal';
+import TypePickerModal from '@/components/TypePickerModal';
 
 // Helper component for the portal pattern
 function ModalPortal({ children }: { children: React.ReactNode }) {
@@ -28,6 +29,7 @@ function VenueModalUI(props: any) {
     notesTextareaRef, fileInputRef, contextMenuRef, onStickerUpdate,
     // picker state
     showLocalitySelect, setShowLocalitySelect, localities, showRegionSelect, setShowRegionSelect, regions,
+    showTypeSelect, setShowTypeSelect,
     // image state
     hoveredImageId, setHoveredImageId, clickedImageId, setClickedImageId,
   } = props;
@@ -74,19 +76,9 @@ function VenueModalUI(props: any) {
                   {/* Row: Type */}
                   <div>
                     <label style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>Type *</label>
-                    <select value={createData.type} onChange={e => setCreateData({ ...createData, type: e.target.value })} style={{ width: '100%', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6 }}>
-                      <option value="gallery - commercial">gallery - commercial</option>
-                      <option value="gallery - non-profit">gallery - non-profit</option>
-                      <option value="library">library</option>
-                      <option value="cafe-restaurant">cafe-restaurant</option>
-                      <option value="association">association</option>
-                      <option value="market">market</option>
-                      <option value="store">store</option>
-                      <option value="online">online</option>
-                      <option value="open studios">open studios</option>
-                      <option value="public art">public art</option>
-                      <option value="other">other</option>
-                    </select>
+                    <button type="button" onClick={() => setShowTypeSelect(true)} style={{ width: '100%', textAlign: 'left', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6, backgroundColor: '#ffffff', cursor: 'pointer', fontSize: '0.875rem' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'}>
+                      {createData.type || 'Select type'}
+                    </button>
                     {createErrors.includes('type') && <div style={{ color: '#dc2626', fontSize: 12, marginTop: 2 }}>Required</div>}
                   </div>
                   {/* Row: Region picker */}
@@ -327,15 +319,6 @@ function VenueModalUI(props: any) {
                         onMouseEnter={() => setHoveredImageId(image.id)}
                         onMouseLeave={() => setHoveredImageId(null)}
                       />
-                      {hoveredImageId === image.id && (
-                        <div style={{
-                          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '0.875rem', fontWeight: 500, color: 'white'
-                        }}>
-                          View Image
-                        </div>
-                      )}
                       {clickedImageId === image.id && (
                         <div style={{
                           position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.7)', color: 'white',
@@ -347,6 +330,68 @@ function VenueModalUI(props: any) {
                     </div>
                   ))}
                 </div>
+
+                {/* Full-size image display area below thumbnails */}
+                {(hoveredImageId || clickedImageId) && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: '100%',
+                    padding: '1rem',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: 8,
+                    marginTop: '1rem',
+                    minHeight: '400px'
+                  }}>
+                    <img
+                      src={venueImages.find(img => img.id === (hoveredImageId || clickedImageId))?.url}
+                      alt="Full size preview"
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '800px',
+                        objectFit: 'contain',
+                        borderRadius: 4,
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Placeholder when no image is selected */}
+                {!hoveredImageId && !clickedImageId && venueImages.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: '100%',
+                    padding: '1rem',
+                    backgroundColor: '#e5e7eb',
+                    borderRadius: 8,
+                    marginTop: '1rem',
+                    minHeight: '400px',
+                    border: '2px solid #d1d5db'
+                  }}>
+                    <div style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.875rem' }}>
+                      Hover over or click a thumbnail to view full size
+                    </div>
+                  </div>
+                )}
+
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      handleImageUpload(e.target.files);
+                      e.target.value = '';
+                    }
+                  }}
+                />
               </div>
             )}
 
@@ -411,7 +456,7 @@ function VenueModalUI(props: any) {
             backgroundColor: 'white',
             borderRadius: 8,
             boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-            zIndex: 10000,
+            zIndex: 9990,
             padding: '0.5rem',
             fontSize: '0.875rem',
             border: '1px solid #e5e7eb'
@@ -485,6 +530,17 @@ function VenueModalUI(props: any) {
           }}
           onClear={() => { setCreateData({ ...createData, region_code: '' }); }}
           onClose={() => setShowRegionSelect(false)}
+        />
+      )}
+
+      {/* Type picker in create mode */}
+      {mode === 'create' && showTypeSelect && (
+        <TypePickerModal
+          selectedType={createData.type}
+          onSelectType={(type: string) => {
+            setCreateData({ ...createData, type });
+          }}
+          onClose={() => setShowTypeSelect(false)}
         />
       )}
     </>
@@ -689,6 +745,7 @@ export default function VenueModal(props: any) {
   const [showLocalitySelect, setShowLocalitySelect] = useState(false);
   const [regions, setRegions] = useState<Array<{ id: string, name: string, code?: string }>>([]);
   const [showRegionSelect, setShowRegionSelect] = useState(false);
+  const [showTypeSelect, setShowTypeSelect] = useState(false);
 
   useEffect(() => {
     if (mode !== 'create') return;
@@ -971,6 +1028,7 @@ export default function VenueModal(props: any) {
     <ModalPortal>
       <VenueModalUI
         {...props}
+        mode={mode}
         localNotes={localNotes}
         originalNotes={originalNotes}
         hasUnsavedChanges={hasUnsavedChanges}
@@ -1018,6 +1076,8 @@ export default function VenueModal(props: any) {
         showRegionSelect={showRegionSelect}
         setShowRegionSelect={setShowRegionSelect}
         regions={regions}
+        showTypeSelect={showTypeSelect}
+        setShowTypeSelect={setShowTypeSelect}
         // image state
         hoveredImageId={hoveredImageId}
         setHoveredImageId={setHoveredImageId}

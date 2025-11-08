@@ -19,11 +19,11 @@ export default function LocalityPickerModal(props: LocalityPickerModalProps) {
   return (
     <>
       <div
-        style={{ position:'fixed', top:0, left:0, right:0, bottom:0, backgroundColor:'rgba(0,0,0,0.5)', zIndex:9998 }}
+        style={{ position:'fixed', top:0, left:0, right:0, bottom:0, backgroundColor:'rgba(0,0,0,0.5)', zIndex:10000 }}
         onClick={onClose}
       />
       <div
-        style={{ position:'fixed', top:0, left:0, right:0, bottom:0, display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, pointerEvents:'none' }}
+        style={{ position:'fixed', top:0, left:0, right:0, bottom:0, display:'flex', alignItems:'center', justifyContent:'center', zIndex:10001, pointerEvents:'none' }}
       >
         <div
           style={{ backgroundColor:'white', borderRadius:8, width:'100%', maxWidth:'56rem', maxHeight:'90vh', display:'flex', flexDirection:'column', pointerEvents:'auto', fontFamily:'Arial, Helvetica, sans-serif' }}
