@@ -81,6 +81,7 @@ export default function VenuesPage() {
   const [credits, setCredits] = useState<number | null>(null);
   const [meRole, setMeRole] = useState<string | null>(null);
   const [showCreateVenueModal, setShowCreateVenueModal] = useState(false);
+  const [hasNewUnsortedVenue, setHasNewUnsortedVenue] = useState(false);
 
   // Locality picker state
   const [localities, setLocalities] = useState<Array<{id: string, name: string}>>([]);
@@ -180,7 +181,14 @@ export default function VenuesPage() {
       if (append) {
         setVenues(prev => [...prev, ...data.venues]);
       } else {
-        setVenues(data.venues);
+        // If a new venue was just added and now we're filtering/searching, sort the whole list
+        if (hasNewUnsortedVenue) {
+          const sorted = [...data.venues].sort((a, b) => a.name.localeCompare(b.name));
+          setVenues(sorted);
+          setHasNewUnsortedVenue(false);
+        } else {
+          setVenues(data.venues);
+        }
       }
 
       setCurrentPage(data.page);
@@ -1101,12 +1109,9 @@ export default function VenuesPage() {
           userRole={meRole || 'artist'}
           onClose={() => setShowCreateVenueModal(false)}
           onVenueCreated={(created: Venue) => {
-            // Inject row and keep list sorted by name
-            setVenues(prev => {
-              const next = [...prev, created];
-              next.sort((a, b) => a.name.localeCompare(b.name));
-              return next;
-            });
+            // Prepend the new venue to the top of the list
+            setVenues(prev => [created, ...prev]);
+            setHasNewUnsortedVenue(true);
           }}
         />
       )}
