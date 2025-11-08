@@ -34,6 +34,8 @@ function VenueModalUI(props: any) {
     showTypeSelect, setShowTypeSelect,
     // image state
     hoveredImageId, setHoveredImageId, clickedImageId, setClickedImageId,
+    // deleting state for sticker context menu
+    deletingStickerId,
   } = props;
 
   return (
@@ -546,20 +548,21 @@ function VenueModalUI(props: any) {
             backgroundColor: 'white',
             borderRadius: 8,
             boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-            zIndex: 9990,
+            zIndex: 10000,
             padding: '0.5rem',
             fontSize: '0.875rem',
-            border: '1px solid #e5e7eb'
+            border: '1px solid #e5e7eb',
+            minWidth: 160
           }}
         >
           <div
             onClick={() => {
-              setContextMenu(null);
               const meaning = contextMenu.meaning;
               if (meaning) {
                 setRenamingSticker(meaning);
                 setRenameLabel(meaning.label);
                 setShowRenameStickerDialog(true);
+                setContextMenu(null);
               }
             }}
             style={{ padding: '0.25rem 0.5rem', cursor: 'pointer', borderRadius: 4, transition: 'background-color 0.2s' }}
@@ -570,14 +573,19 @@ function VenueModalUI(props: any) {
           </div>
           <div
             onClick={() => {
-              setContextMenu(null);
               const meaning = contextMenu.meaning;
-              if (meaning) handleDeleteStickerMeaning(meaning);
+              if (meaning) {
+                // keep menu open and show spinner while deleting
+                handleDeleteStickerMeaning(meaning);
+              }
             }}
-            style={{ padding: '0.25rem 0.5rem', cursor: 'pointer', borderRadius: 4, transition: 'background-color 0.2s' }}
+            style={{ padding: '0.25rem 0.5rem', cursor: 'pointer', borderRadius: 4, transition: 'background-color 0.2s', display: 'flex', alignItems: 'center', gap: 8, opacity: deletingStickerId ? 0.7 : 1 }}
             onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; }}
             onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; }}
           >
+            {deletingStickerId ? (
+              <span style={{ width: 14, height: 14, border: '2px solid #93c5fd', borderTopColor: '#3b82f6', borderRadius: '50%', display: 'inline-block', animation: 'nw5spin 0.6s linear infinite' }} />
+            ) : null}
             Delete Sticker
           </div>
         </div>
@@ -764,6 +772,83 @@ function VenueModalUI(props: any) {
           </div>
         </>
       )}
+
+      {/* Rename Sticker Dialog */}
+      {showRenameStickerDialog && renamingSticker && (
+        <>
+          <div
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10000 }}
+            onClick={() => {
+              setShowRenameStickerDialog(false);
+              setRenamingSticker(null);
+              setRenameLabel('');
+            }}
+          />
+          <div
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001, pointerEvents: 'none' }}
+          >
+            <div
+              style={{ backgroundColor: 'white', borderRadius: 8, width: '100%', maxWidth: '28rem', display: 'flex', flexDirection: 'column', pointerEvents: 'auto', fontFamily: 'Arial, Helvetica, sans-serif' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.5rem', borderBottom: '1px solid #e5e7eb' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>Rename Sticker</h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRenameStickerDialog(false);
+                    setRenamingSticker(null);
+                    setRenameLabel('');
+                  }}
+                  style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '2rem', fontWeight: 'bold', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+                >
+                  ×
+                </button>
+              </div>
+              <div style={{ padding: '1.5rem' }}>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ fontWeight: 600, display: 'block', marginBottom: 4, fontSize: '0.875rem' }}>New Label *</label>
+                  <input
+                    value={renameLabel}
+                    onChange={(e) => setRenameLabel(e.target.value)}
+                    maxLength={15}
+                    placeholder="Max 15 characters"
+                    style={{ width: '100%', padding: '0.55rem 0.6rem', border: '1px solid #d1d5db', borderRadius: 6, fontSize: '0.875rem' }}
+                    autoFocus
+                  />
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                  Current: <span style={{ fontWeight: 600 }}>{renamingSticker.label}</span>
+                </div>
+              </div>
+              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRenameStickerDialog(false);
+                    setRenamingSticker(null);
+                    setRenameLabel('');
+                  }}
+                  style={{ padding: '0.5rem 1rem', backgroundColor: '#e5e7eb', color: '#374151', border: 'none', borderRadius: 6, fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d1d5db'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#e5e7eb'}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRenameStickerMeaning}
+                  style={{ padding: '0.5rem 1rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: 6, fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                >
+                  Rename Sticker
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -771,7 +856,7 @@ function VenueModalUI(props: any) {
 
 // Container component - manages all state and logic
 export default function VenueModal(props: any) {
-  const { venue, onClose, onNoteSaved, onStickerUpdate, mode = 'view', onVenueCreated, userRole } = props;
+  const { venue, onClose, onNoteSaved, onStickerUpdate, mode = 'view', onVenueCreated, userRole, onStickerRename } = props;
   const [localNotes, setLocalNotes] = useState('');
   const [originalNotes, setOriginalNotes] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -799,6 +884,8 @@ export default function VenueModal(props: any) {
     label: '',
     details: ''
   });
+  // track deletion loading for menu spinner
+  const [deletingStickerId, setDeletingStickerId] = useState<string | null>(null);
 
   const {
     notes, images, imagesUploading, setNote, setImages, addImage, removeImage, setImagesLoading, incrementUploading, decrementUploading,
@@ -849,7 +936,7 @@ export default function VenueModal(props: any) {
     }));
   }, [stickerMeanings]);
 
-  // Robust: close context menu when clicking outside, right-clicking elsewhere, pressing Escape, or on scroll
+  // Robust: close context menu when clicking outside, pressing Escape, or on scroll (not on right-click to avoid conflicts)
   useEffect(() => {
     if (!contextMenu) return;
     const handleMouseDown = (e: MouseEvent) => {
@@ -857,23 +944,16 @@ export default function VenueModal(props: any) {
         setContextMenu(null);
       }
     };
-    const handleContextMenu = (e: MouseEvent) => {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
-        setContextMenu(null);
-      }
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDownDoc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setContextMenu(null);
     };
     const handleScroll = () => setContextMenu(null);
     document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('contextmenu', handleContextMenu);
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDownDoc);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('contextmenu', handleContextMenu);
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDownDoc);
       window.removeEventListener('scroll', handleScroll as EventListener);
     };
   }, [contextMenu]);
@@ -1252,9 +1332,13 @@ export default function VenueModal(props: any) {
   };
 
   const handleDeleteStickerMeaning = async (meaning: any) => {
-    const confirmed = confirm(`Delete sticker "${meaning.label}"? This will remove it from your stickers list and from any venues where it's assigned.`);
-    if (!confirmed) return;
+    // show spinner in menu
+    setDeletingStickerId(meaning.id);
     try {
+      const confirmed = confirm(`Delete sticker "${meaning.label}"? This will remove it from your stickers list and from any venues where it's assigned.`);
+      if (!confirmed) {
+        return;
+      }
       const forceResp = await fetch(`/api/stickers/meanings/delete?id=${meaning.id}&force=true`, { method: 'POST' });
       if (forceResp.ok) {
         const data = await forceResp.json().catch(() => ({}));
@@ -1268,20 +1352,16 @@ export default function VenueModal(props: any) {
             try { onStickerUpdate(venue.id); } catch { }
           }
         }
-        return;
+      } else {
+        const err = await forceResp.json().catch(() => ({}));
+        alert(err.error || 'Failed to delete sticker');
       }
-      const fallback = await fetch(`/api/stickers/meanings/delete?id=${meaning.id}`, { method: 'POST' });
-      if (fallback.ok) {
-        await loadStickerMeanings();
-        await loadVenueStickers();
-        try { onStickerUpdate && onStickerUpdate(venue.id); } catch { }
-        return;
-      }
-      const errData = await fallback.json().catch(() => ({}));
-      alert(errData.error || (errData.message) || 'Failed to delete sticker');
-    } catch (error) {
-      console.error('Failed to delete sticker:', error);
+    } catch (err) {
+      console.error('Failed to delete sticker:', err);
       alert('Failed to delete sticker');
+    } finally {
+      setDeletingStickerId(null);
+      setContextMenu(null);
     }
   };
 
@@ -1300,6 +1380,8 @@ export default function VenueModal(props: any) {
         setRenamingSticker(null);
         setRenameLabel('');
         if (onStickerUpdate) onStickerUpdate(venue.id);
+        // Propagate rename across all venues in table
+        try { onStickerRename && onStickerRename(renamingSticker.id, renameLabel); } catch (e) { console.warn('onStickerRename callback failed', e); }
       } else {
         const errorData = await response.json();
         alert(errorData.error || 'Failed to rename sticker');
@@ -1364,6 +1446,7 @@ export default function VenueModal(props: any) {
         notesTextareaRef={notesTextareaRef}
         fileInputRef={fileInputRef}
         contextMenuRef={contextMenuRef}
+        deletingStickerId={deletingStickerId}
         // picker state
         showLocalitySelect={showLocalitySelect}
         setShowLocalitySelect={setShowLocalitySelect}

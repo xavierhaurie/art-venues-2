@@ -420,8 +420,28 @@ export default function VenuesPage() {
     const ids = Array.isArray(venueIds) ? venueIds : [venueIds];
     setStickerRefreshSignals(prev => {
       const next = { ...prev };
-      ids.forEach(id => {
-        next[id] = (next[id] || 0) + 1;
+      ids.forEach(id => { next[id] = (next[id] || 0) + 1; });
+      return next;
+    });
+  };
+
+  // Propagate sticker meaning rename across all venues and cached sticker meanings
+  const handleStickerRename = (meaningId: string, newLabel: string) => {
+    // Update venues' user_stickers arrays
+    setVenues(prev => prev.map(v => {
+      if (!v.user_stickers || v.user_stickers.length === 0) return v;
+      const updatedStickers = v.user_stickers.map(s => s.sticker_meaning_id === meaningId ? { ...s, label: newLabel } : s);
+      return { ...v, user_stickers: updatedStickers };
+    }));
+    // Update sticker filter meanings list if present
+    setStickerMeanings(prev => prev.map(m => m.id === meaningId ? { ...m, label: newLabel } : m));
+    // Trigger refresh signals for rows that contain renamed sticker
+    setStickerRefreshSignals(prev => {
+      const next = { ...prev };
+      venues.forEach(v => {
+        if (v.user_stickers?.some(s => s.sticker_meaning_id === meaningId)) {
+          next[v.id] = (next[v.id] || 0) + 1;
+        }
       });
       return next;
     });
@@ -1079,28 +1099,15 @@ export default function VenuesPage() {
           onClose={handleCloseModal}
           onNoteSaved={handleNoteSaved}
           onStickerUpdate={handleStickerUpdate}
-          onImagesChanged={(venueId: string, action?: 'added' | 'removed', payload?: any) => {
-            // Update the venue row locally without refetching all data
-            setVenues(prev => prev.map(v => {
-              if (v.id !== venueId) return v;
-              const curImages = Array.isArray(v.images) ? [...v.images] : [];
-              let images_count = v.images_count || 0;
-              if (action === 'added' && payload) {
-                // payload is expected to be the image object from POST /images (includes signed url)
-                const newImg = { id: payload.id, url: payload.url, thumb_url: payload.thumb_url || payload.url, created_at: payload.created_at };
-                // Prepend newest; cap at 6 for preview
-                const nextImages = [newImg, ...curImages].slice(0, 6);
-                return { ...v, images: nextImages, images_count: images_count + 1 };
-              }
-              if (action === 'removed' && payload) {
-                const removedId = typeof payload === 'string' ? payload : payload.id;
-                const nextImages = curImages.filter(img => img.id !== removedId);
-                images_count = Math.max(0, images_count - 1);
-                return { ...v, images: nextImages, images_count };
-              }
-              return v;
-            }));
+          onStickerRename={handleStickerRename}
+          mode={showCreateVenueModal ? 'create' : 'view'}
+          onVenueCreated={(newVenue: any) => {
+            // Insert new venue at top (unsorted) then mark flag so next fetch sorts
+            setVenues(prev => [newVenue, ...prev]);
+            setHasNewUnsortedVenue(true);
+            setShowCreateVenueModal(false);
           }}
+          userRole={meRole || 'user'}
         />
       )}
 
