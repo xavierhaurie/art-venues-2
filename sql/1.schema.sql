@@ -25,7 +25,7 @@ CREATE TYPE venue_claim_status AS ENUM ('unclaimed','pending','claimed','rejecte
 CREATE TYPE subscription_status AS ENUM ('trialing','active','past_due','canceled');
 CREATE TYPE credit_reason      AS ENUM ('data_fix','referral');
 CREATE TYPE comment_status     AS ENUM ('visible','hidden','flagged','deleted');
-CREATE TYPE region_code        AS ENUM ('BOS','LA','NYC');
+CREATE TYPE region_code        AS ENUM ('BOS','LA','NYC','MTL');
 CREATE TYPE venue_type         AS ENUM ('gallery - commercial','gallery - non-profit','library','cafe-restaurant','association','market','store','online','open studios','public art','other');
 CREATE TYPE bookmark_target    AS ENUM ('venue','artist','blog_post');
 CREATE TYPE report_type        AS ENUM ('missing','incorrect');

@@ -1013,8 +1013,8 @@ export default function VenueModal(props: any) {
         const resp = await fetch('/api/regions');
         if (resp.ok) {
           const data = await resp.json();
-          const list = (data.regions || []).map((r: any) => ({ id: r.id || r.code || r.name, name: r.name, code: r.code || r.region_code || r.key || r.name }));
-          setRegions(list);
+          // API now returns properly structured regions with id, code, key, and name
+          setRegions(data.regions || []);
         }
       } catch (e) {
         console.warn('Failed to load regions', e);

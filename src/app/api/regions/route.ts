@@ -14,7 +14,11 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch regions' }, { status: 500 });
     }
 
-    const regions = Array.isArray(data) ? data : [];
+    // Map to include id and code fields for compatibility
+    const regions = Array.isArray(data)
+      ? data.map(r => ({ id: r.key, key: r.key, code: r.key, name: r.name }))
+      : [];
+
     return NextResponse.json({ regions });
   } catch (err) {
     console.error('Region API error:', err);
