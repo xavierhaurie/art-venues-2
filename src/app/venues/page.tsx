@@ -724,24 +724,25 @@ export default function VenuesPage() {
   return (
     <div className="container mx-auto px-4 py-8 font-sans" style={{ margin: '2rem', overflowX: 'hidden' }}>
       <style jsx global>{`@keyframes nw5spin{to{transform:rotate(360deg)}}`}</style>
-      {/* Add Venue + credits notice */}
-      <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'12px' }}>
-        <button
-          type="button"
-          onClick={() => setShowCreateVenueModal(true)}
-          style={{ padding:'0.5rem 1rem', backgroundColor:'#3b82f6', color:'white', border:'none', borderRadius:6, fontWeight:600, cursor:'pointer' }}
-          onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = '#2563eb'; }}
-          onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = '#3b82f6'; }}
-        >
-          Add Venue
-        </button>
-        <div style={{ fontSize:13, color:'#374151' }}>
-          You have {typeof credits==='number' ? credits : 0} credits. <span style={{ fontStyle:'italic', color:'#6b7280' }}>Earn credits for your venues when we make them accessible to everyone</span>
-        </div>
-      </div>
-
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-6">{formatRegionsTitle(regionNames)}</h1>
+
+        {/* Add Venue + credits notice */}
+        <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'12px' }}>
+          <button
+            type="button"
+            onClick={() => setShowCreateVenueModal(true)}
+            style={{ padding:'0.5rem 1rem', backgroundColor:'#3b82f6', color:'white', border:'none', borderRadius:6, fontWeight:600, cursor:'pointer' }}
+            onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = '#2563eb'; }}
+            onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = '#3b82f6'; }}
+          >
+            Add Venue
+          </button>
+          <div style={{ fontSize:13, color:'#374151' }}>
+            You have {typeof credits==='number' ? credits : 0} credits. <span style={{ fontStyle:'italic', color:'#6b7280' }}>Earn credits for your venues when we make them accessible to everyone</span>
+          </div>
+        </div>
+
 
         <div className="mb-6 space-y-4">
           <form onSubmit={handleSearch} className="flex gap-2 flex-wrap items-center" style={{ margin: 5 }}>
