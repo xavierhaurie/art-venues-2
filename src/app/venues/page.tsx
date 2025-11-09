@@ -699,6 +699,34 @@ export default function VenuesPage() {
     fetchVenues(1, '', emptyFilters, [], [], [], false, false, false, false);
   };
 
+  const handleDownloadCsv = async () => {
+    try {
+      const response = await fetch('/api/venues/export');
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          const data = await response.json();
+          alert(data.message || 'No venues found with interactions');
+          return;
+        }
+        throw new Error('Failed to download CSV');
+      }
+
+      // Get the blob and create a download link
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `my-venues-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading CSV:', error);
+      alert('Failed to download CSV. Please try again.');
+    }
+  };
   const [regionNames, setRegionNames] = useState<string[]>([]);
 
   useEffect(() => {
@@ -744,7 +772,7 @@ export default function VenuesPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-6">{formatRegionsTitle(regionNames)}</h1>
 
-        {/* Add Venue + credits notice */}
+        {/* Add Venue + credits notice + Download CSV */}
         <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'12px' }}>
           <button
             type="button"
@@ -755,9 +783,18 @@ export default function VenuesPage() {
           >
             + Add Venue
           </button>
-          <div style={{ fontSize:13, color:'#374151' }}>
+          <div style={{ fontSize:13, color:'#374151', flex: 1 }}>
             You have {typeof credits==='number' ? credits : 0} credits. <span style={{ fontStyle:'italic', color:'#6b7280' }}>Earn credits for your venues when we make them accessible to everyone</span>
           </div>
+          <button
+            type="button"
+            onClick={handleDownloadCsv}
+            style={{ padding:'0.5rem 1rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:6, fontWeight:600, cursor:'pointer', whiteSpace: 'nowrap', marginRight: '50px' }}
+            onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = '#059669'; }}
+            onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = '#10b981'; }}
+          >
+            Download CSV
+          </button>
         </div>
 
 
