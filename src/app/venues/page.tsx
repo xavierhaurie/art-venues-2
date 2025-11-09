@@ -568,13 +568,34 @@ export default function VenuesPage() {
     return (
       <div onClick={() => handleVenueClick(venueId)} style={{ cursor: 'pointer' }}>
         {venue.user_stickers && venue.user_stickers.length > 0 && (
-          <div style={{ marginBottom: '8px' }}>
-            <strong>Stickers:</strong> {venue.user_stickers.map(s => s.label).join(', ')}
+          <div style={{ marginBottom: '12px' }}>
+            <strong style={{ display: 'block', marginBottom: '6px' }}>Stickers:</strong>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {venue.user_stickers.map((sticker) => (
+                <span
+                  key={sticker.id}
+                  style={{
+                    display: 'inline-block',
+                    padding: '4px 10px',
+                    backgroundColor: sticker.color,
+                    borderRadius: '5px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    border: '1px solid rgba(0,0,0,0.1)',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={sticker.details || sticker.label}
+                >
+                  {sticker.label}
+                </span>
+              ))}
+            </div>
           </div>
         )}
         {venueData?.notes && (
-          <div style={{ marginBottom: '8px' }}>
-            <strong>Notes:</strong> {venueData.notes}
+          <div style={{ marginBottom: '12px' }}>
+            <strong style={{ display: 'block', marginBottom: '6px' }}>Notes:</strong>
+            <div style={{ fontSize: '14px', lineHeight: '1.5' }}>{venueData.notes}</div>
           </div>
         )}
         {images.length > 0 && (
