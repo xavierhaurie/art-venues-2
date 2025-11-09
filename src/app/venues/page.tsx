@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { useConfigStore } from '@/lib/store/configStore';
 import VenueModal from '@/components/VenueModal';
 import VenueStickers from '@/components/VenueStickers';
 import LocalityPickerModal from '@/components/LocalityPickerModal';
@@ -58,7 +59,19 @@ interface UserVenueData {
 
 export default function VenuesPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  // Tooltip & hover state (re-added after duplicate cleanup)
+  const [hoveredCell, setHoveredCell] = useState<{content: React.ReactNode; x: number; y: number; venueId: string} | null>(null);
+  const [clickedCell, setClickedCell] = useState<{content: React.ReactNode; x: number; y: number; venueId: string} | null>(null);
+  const [isOverTooltip, setIsOverTooltip] = useState(false);
+  const [isOverSource, setIsOverSource] = useState(false);
+  const [activeTooltipVenueId, setActiveTooltipVenueId] = useState<string | null>(null);
+  const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const mainScrollRef = useRef<HTMLDivElement | null>(null);
+  const observerTarget = useRef<HTMLDivElement | null>(null);
+  const loadingMore = useRef(false);
+
+  // preload global image config early for modals/tooltips
+  const { fetchImageConfig } = useConfigStore();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,29 +116,7 @@ export default function VenuesPage() {
   const [stickerRefreshSignals, setStickerRefreshSignals] = useState<Record<string, number>>({});
 
   const [userVenueData, setUserVenueData] = useState<{[venueId: string]: UserVenueData}>({});
-  const [editingNote, setEditingNote] = useState<string | null>(null);
-  const [savingNotes, setSavingNotes] = useState<{[venueId: string]: boolean}>({});
-  const noteTimeouts = useRef<{[venueId: string]: NodeJS.Timeout}>({});
-
-  // Text tooltip state for hover/click on name, artist_summary, visitor_summary
-  const [hoveredCell, setHoveredCell] = useState<{content: React.ReactNode, x: number, y: number, venueId: string} | null>(null);
-  const [clickedCell, setClickedCell] = useState<{content: React.ReactNode, x: number, y: number, venueId: string} | null>(null);
-  const tooltipRef = useRef<HTMLDivElement>(null);
-  const [isOverTooltip, setIsOverTooltip] = useState(false);
-  const [isOverSource, setIsOverSource] = useState(false);
-  const [activeTooltipVenueId, setActiveTooltipVenueId] = useState<string | null>(null);
-
-  // Images are now delivered with the venues list via LEFT JOIN; no per-row fetch needed
-  const loadingMore = useRef(false);
-
-  // Scrollbar refs (only main table scrollbar retained)
-  const mainScrollRef = useRef<HTMLDivElement>(null);
-  const observerTarget = useRef<HTMLDivElement>(null);
-
-  // Full venue data for modal (includes contact info)
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
-  const [loadingVenue, setLoadingVenue] = useState(false);
-
   const { selectedVenueId, openModal, closeModal } = useVenueStore();
 
   const fetchVenues = async (
@@ -173,7 +164,8 @@ export default function VenuesPage() {
       if (!showMineFlag) params.append('show_mine', 'false');
       const response = await fetch(`/api/venues?${params}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch venues');
+        setError('Failed to load venues');
+        return;
       }
 
       const data: VenuesResponse = await response.json();
@@ -221,6 +213,8 @@ export default function VenuesPage() {
   };
 
   useEffect(() => {
+    // Load image config globally, ignore errors
+    fetchImageConfig().catch(() => {});
     fetchVenues();
     loadStickerMeanings();
     loadLocalities();
@@ -285,27 +279,24 @@ export default function VenuesPage() {
   useEffect(() => {
     if (selectedVenueId) {
       const fetchFullVenue = async () => {
-        setLoadingVenue(true);
-        try {
-          const response = await fetch(`/api/venues/${selectedVenueId}`);
-          if (response.ok) {
-            const data = await response.json();
-            setSelectedVenue(data);
-          } else {
-            console.error('Failed to fetch full venue data');
-            // Fallback to list data
-            const venueFromList = venues.find(v => v.id === selectedVenueId);
-            setSelectedVenue(venueFromList || null);
-          }
-        } catch (error) {
-          console.error('Error fetching venue:', error);
-          // Fallback to list data
-          const venueFromList = venues.find(v => v.id === selectedVenueId);
-          setSelectedVenue(venueFromList || null);
-        } finally {
-          setLoadingVenue(false);
-        }
-      };
+         try {
+           const response = await fetch(`/api/venues/${selectedVenueId}`);
+           if (response.ok) {
+             const data = await response.json();
+             setSelectedVenue(data);
+           } else {
+             console.error('Failed to fetch full venue data');
+             // Fallback to list data
+             const venueFromList = venues.find(v => v.id === selectedVenueId);
+             setSelectedVenue(venueFromList || null);
+           }
+         } catch (error) {
+           console.error('Error fetching venue:', error);
+           // Fallback to list data
+           const venueFromList = venues.find(v => v.id === selectedVenueId);
+           setSelectedVenue(venueFromList || null);
+         }
+       };
       fetchFullVenue();
     } else {
       setSelectedVenue(null);
@@ -341,14 +332,6 @@ export default function VenuesPage() {
     setCurrentPage(1);
     setHasMore(true);
     fetchVenues(1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
-  };
-
-  const handleFilterChange = (key: string, value: string) => {
-    const newFilters = { ...filters, [key]: value };
-    setFilters(newFilters);
-    setCurrentPage(1);
-    setHasMore(true);
-    fetchVenues(1, searchQuery, newFilters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, false, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
   };
 
   const handleStickerFilterToggle = (stickerMeaningId: string) => {
@@ -472,14 +455,22 @@ export default function VenuesPage() {
     }));
   };
 
-  const handleNotesChange = (venueId: string, notes: string) => {
-    setUserVenueData(prev => ({
-      ...prev,
-      [venueId]: {
-        ...prev[venueId],
-        notes
+  // Handle image changes from modal (add or delete)
+  const handleImageChange = async (venueId: string, addedImage?: any, deletedImageId?: string) => {
+    // Re-fetch images for this venue to get fresh signed URLs and update the table
+    try {
+      const resp = await fetch(`/api/venues/${venueId}/images`);
+      if (resp.ok) {
+        const data = await resp.json();
+        const freshImages = data.images || [];
+        // Update the venues state with fresh image data
+        setVenues(prev => prev.map(v =>
+          v.id === venueId ? { ...v, images: freshImages } : v
+        ));
       }
-    }));
+    } catch (err) {
+      console.error('[ImageChange] Failed to refresh images for venue', venueId, err);
+    }
   };
 
   // Close hover tooltip only when mouse leaves both source and tooltip; do not swap to other cells while active
@@ -570,17 +561,6 @@ export default function VenuesPage() {
     } catch {}
    };
 
-  const renderNameTooltip = (venue: Venue): React.ReactNode => {
-    return (
-      <div>
-        <div style={{ fontWeight: 600 }}>{venue.name}</div>
-        <em style={{ display: 'block', marginTop: 6, color: '#6b7280' }}>
-          (Click for details and to edit stickers and notes)
-        </em>
-      </div>
-    );
-  };
-
   const renderStickersNotesArtworkTooltip = (venue: Venue, venueId: string): React.ReactNode => {
     const venueData = userVenueData[venueId];
     const images = (venues.find(v => v.id === venueId)?.images) || [];
@@ -604,7 +584,7 @@ export default function VenuesPage() {
               {images.map((image) => (
                 <img
                   key={image.id}
-                  src={image.url}
+                  src={image.thumb_url || image.url}
                   alt="Artwork"
                   style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #e5e7eb' }}
                 />
@@ -623,20 +603,16 @@ export default function VenuesPage() {
   };
 
   const renderNotesCell = (venueId: string) => {
-    const venueData = userVenueData[venueId];
-    if (!venueData || !venueData.notes) return null;
-    const isSaving = savingNotes[venueId];
-    return (
-      <div className="p-2 relative">
-        <div className="text-sm text-gray-700 truncate" style={{ maxWidth: '200px' }}>
-          {venueData.notes}
-        </div>
-        {isSaving && (
-          <div className="absolute top-1 right-1 text-xs text-gray-500">Saving...</div>
-        )}
-      </div>
-    );
-  };
+     const venueData = userVenueData[venueId];
+     if (!venueData || !venueData.notes) return null;
+     return (
+       <div className="p-2 relative">
+         <div className="text-sm text-gray-700 truncate" style={{ maxWidth: '200px' }}>
+           {venueData.notes}
+         </div>
+       </div>
+     );
+   };
 
   // Debounced search (300ms)
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -1100,6 +1076,7 @@ export default function VenuesPage() {
           onNoteSaved={handleNoteSaved}
           onStickerUpdate={handleStickerUpdate}
           onStickerRename={handleStickerRename}
+          onImageChange={handleImageChange}
           mode={showCreateVenueModal ? 'create' : 'view'}
           onVenueCreated={(newVenue: any) => {
             // Insert new venue at top (unsorted) then mark flag so next fetch sorts

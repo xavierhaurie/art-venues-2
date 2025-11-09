@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getVenues, searchVenues, getVenueFilters } from '@/lib/venues';
 import { VenueListParams } from '@/types/venue';
 import { getSession } from '@/lib/session';
+import { createClient } from '@supabase/supabase-js';
 
 /**
  * GET /api/venues
@@ -70,7 +71,19 @@ export async function GET(request: NextRequest) {
     const responseHeaders = new Headers();
     responseHeaders.set('X-Response-Time', Date.now().toString());
 
-    return NextResponse.json(result, { headers: responseHeaders });
+    const configClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const CONFIG_KEYS = ['max_image_weight','target_image_size','thumbnail_image_size','max_image_count','signed_url_ttl_seconds'];
+    function parseConfigValue(v:string){return /^[0-9.,]+$/.test(v)?Number(v.replace(/,/g,'')):v;}
+    async function fetchImageConfig(){
+      const { data, error } = await configClient.from('config').select('name,value').in('name', CONFIG_KEYS);
+      if (error) { console.error('Failed to load config for venues:', error); return null; }
+      const map:Record<string,any> = {};
+      (data||[]).forEach(r=>{ map[r.name] = parseConfigValue(r.value); });
+      return map;
+    }
+
+    const imageConfig = await fetchImageConfig();
+    return NextResponse.json({ ...result, config: imageConfig }, { headers: responseHeaders });
 
   } catch (error) {
     console.error('Venue list API error:', error);

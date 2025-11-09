@@ -8,6 +8,7 @@ import { useVenueStore } from '@/lib/store/venueStore';
 import { compressImage, validateImageFile } from '@/lib/imageUtils';
 import LocalityPickerModal from '@/components/LocalityPickerModal';
 import TypePickerModal from '@/components/TypePickerModal';
+import { useImageConfig } from '@/lib/hooks/useImageConfig';
 
 // Helper component for the portal pattern
 function ModalPortal({ children }: { children: React.ReactNode }) {
@@ -24,20 +25,41 @@ function VenueModalUI(props: any) {
   const {
     venue, mode, localNotes, originalNotes, hasUnsavedChanges, isSaving, uploadingCount, venueImages, stickerMeanings, assignedStickers, assignedStickerIds, contextMenu, createData, createErrors, creating, creationBorderColor, creationBadge,
     editData, editErrors, editingSaving, handleEditSubmit, setEditData,
-    // handlers
-    handleClose, handleKeyDown, handleNotesChange, handleSave, handleCreateSubmit, handleAssignSticker, handleUnassignSticker, handleDeleteImage, handleImageUpload, handleCreateStickerMeaning, handleDeleteStickerMeaning, handleRenameStickerMeaning,
+    handleClose, handleNotesChange, handleSave, handleCreateSubmit, handleAssignSticker, handleUnassignSticker, handleDeleteImage, handleImageUpload, handleCreateStickerMeaning, handleDeleteStickerMeaning, handleRenameStickerMeaning,
     setContextMenu, setCreateData, setShowCreateStickerDialog, setShowRenameStickerDialog, setRenamingSticker, setRenameLabel, renamingSticker, renameLabel, showCreateStickerDialog, showRenameStickerDialog,
     stickerFormData, setStickerFormData,
-    notesTextareaRef, fileInputRef, contextMenuRef, onStickerUpdate,
-    // picker state
+    notesTextareaRef, fileInputRef, contextMenuRef,
     showLocalitySelect, setShowLocalitySelect, localities, showRegionSelect, setShowRegionSelect, regions,
     showTypeSelect, setShowTypeSelect,
-    // image state
-    hoveredImageId, setHoveredImageId, clickedImageId, setClickedImageId,
-    // deleting state for sticker context menu
     deletingStickerId,
-    loadingStickerMeanings, loadingAssignedStickers, // NEW
+    loadingStickerMeanings, loadingAssignedStickers,
+    isImagesLoading,
+    maxImageCount,
+    handleOpenFileDialog,
+    handleResetNotes
   } = props;
+
+  // Full-size image preview state
+  const [hoveredImageId, setHoveredImageId] = useState<string | null>(null);
+  const [clickedImageId, setClickedImageId] = useState<string | null>(null);
+
+  // Clear stale selections if images change
+  useEffect(() => {
+    if (clickedImageId && !venueImages.find((img: any) => img.id === clickedImageId)) {
+      setClickedImageId(null);
+    }
+    if (hoveredImageId && !venueImages.find((img: any) => img.id === hoveredImageId)) {
+      setHoveredImageId(null);
+    }
+  }, [venueImages, clickedImageId, hoveredImageId]);
+
+  const activePreviewId = hoveredImageId || clickedImageId;
+  const activePreviewImage = activePreviewId ? venueImages.find((img: any) => img.id === activePreviewId) : null;
+
+  // ADD: keydown handler + ref to enable Escape closing
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
+  useEffect(() => { containerRef.current?.focus(); }, []);
 
   return (
     <>
@@ -45,7 +67,7 @@ function VenueModalUI(props: any) {
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9998 }} onClick={handleClose} />
 
       {/* Modal Container */}
-      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, pointerEvents: 'none' }} onKeyDown={handleKeyDown}>
+      <div ref={containerRef} tabIndex={-1} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, pointerEvents: 'none' }} onKeyDown={handleKeyDown}>
         <div style={{ backgroundColor: 'white', borderRadius: 8, width: '100%', maxWidth: '56rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column', pointerEvents: 'auto', fontFamily: 'Arial, Helvetica, sans-serif', border: mode === 'create' ? `3px solid ${creationBorderColor}` : undefined }} onClick={(e) => e.stopPropagation()}>
 
           {/* Header */}
@@ -278,7 +300,7 @@ function VenueModalUI(props: any) {
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        {(stickerMeanings || []).map((meaning) => (
+                        {(stickerMeanings || []).map((meaning: any) => (
                           <div
                             key={meaning.id}
                             onClick={() => handleAssignSticker(meaning.id)}
@@ -322,7 +344,7 @@ function VenueModalUI(props: any) {
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        {(assignedStickers || []).map((sticker) => (
+                        {(assignedStickers || []).map((sticker: any) => (
                           <div key={sticker.id} style={{ position: 'relative', display: 'flex', alignItems: 'center', padding: '0.375rem 0.75rem', backgroundColor: sticker.color, borderRadius: 6, fontSize: '0.75rem', fontWeight: 500, border: '1px solid rgba(0,0,0,0.1)' }} title={sticker.details || sticker.label}>
                             <span>{sticker.label}</span>
                             <button onClick={() => handleUnassignSticker(sticker.sticker_meaning_id)} style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '50%', width: 16, height: 16, fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
@@ -361,7 +383,7 @@ function VenueModalUI(props: any) {
                 {/* Reset + Save notes buttons */}
                 <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                   <button
-                    onClick={() => { setLocalNotes(originalNotes); }}
+                    onClick={handleResetNotes}
                     disabled={isSaving || uploadingCount > 0}
                     style={{
                       padding: '0.4rem 0.75rem',
@@ -398,20 +420,21 @@ function VenueModalUI(props: any) {
 
             {/* Images Section (hidden in create mode) */}
             {mode === 'view' && (
-              <div style={{ marginBottom: '2rem' }}>
+              <div style={{ marginBottom: '2rem', position:'relative' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                  <h3 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0 }}>Images ({venueImages.length}/20)</h3>
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0 }}>Images ({venueImages.length}/{maxImageCount})</h3>
                   <button
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => handleOpenFileDialog?.()}
+                    disabled={isImagesLoading}
                     style={{
                       padding: '0.375rem 0.75rem',
-                      backgroundColor: '#3b82f6',
+                      backgroundColor: isImagesLoading ? '#9ca3af' : '#3b82f6',
                       color: 'white',
                       border: 'none',
                       borderRadius: 6,
                       fontSize: '0.875rem',
                       fontWeight: 500,
-                      cursor: 'pointer',
+                      cursor: isImagesLoading ? 'not-allowed' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.25rem'
@@ -420,93 +443,103 @@ function VenueModalUI(props: any) {
                     <span style={{ fontSize: '0.875rem' }}>+</span> Add Image
                   </button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' }}>
-                  {venueImages.map((image) => (
-                    <div key={image.id} style={{ position: 'relative', cursor: 'pointer', borderRadius: 8, overflow: 'hidden', aspectRatio: '4/3' }}>
-                      <img
-                        src={image.url}
-                        alt={image.filename}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                        onClick={() => {
-                          setClickedImageId(image.id);
-                          setHoveredImageId(null);
-                        }}
-                        onMouseEnter={() => setHoveredImageId(image.id)}
-                        onMouseLeave={() => setHoveredImageId(null)}
-                      />
-                      {clickedImageId === image.id && (
-                        <div style={{
-                          position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.7)', color: 'white',
-                          padding: '0.25rem 0.5rem', borderRadius: 4, fontSize: '0.75rem', cursor: 'pointer'
-                        }} onClick={(e) => { e.stopPropagation(); handleDeleteImage(image.id); }}>
-                          Delete
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Full-size image display area below thumbnails */}
-                {(hoveredImageId || clickedImageId) && (
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    width: '100%',
-                    padding: '1rem',
-                    backgroundColor: '#f9fafb',
-                    borderRadius: 8,
-                    marginTop: '1rem',
-                    minHeight: '400px'
-                  }}>
-                    <img
-                      src={venueImages.find(img => img.id === (hoveredImageId || clickedImageId))?.url}
-                      alt="Full size preview"
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '800px',
-                        objectFit: 'contain',
-                        borderRadius: 4,
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                      }}
-                    />
-                  </div>
-                )}
-
-                {/* Placeholder when no image is selected */}
-                {!hoveredImageId && !clickedImageId && venueImages.length > 0 && (
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    width: '100%',
-                    padding: '1rem',
-                    backgroundColor: '#e5e7eb',
-                    borderRadius: 8,
-                    marginTop: '1rem',
-                    minHeight: '400px',
-                    border: '2px solid #d1d5db'
-                  }}>
-                    <div style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.875rem' }}>
-                      Hover over or click a thumbnail to view full size
-                    </div>
-                  </div>
-                )}
-
-                {/* Hidden file input */}
+                {/* Hidden file input for image uploads */}
                 <input
-                  ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   multiple
-                  style={{ display: 'none' }}
+                  style={{ display:'none' }}
+                  ref={fileInputRef}
                   onChange={(e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      handleImageUpload(e.target.files);
-                      e.target.value = '';
+                    if (!handleImageUpload) {
+                      console.warn('handleImageUpload not passed to VenueModalUI');
+                      return;
                     }
+                    handleImageUpload(e);
                   }}
                 />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem', filter: isImagesLoading ? 'blur(2px)' : 'none', transition:'filter 0.2s' }}>
+                  {venueImages.map((image: any) => (
+                    <div
+                      key={image.id}
+                      style={{ position: 'relative', cursor: 'pointer', borderRadius: 8, overflow: 'hidden', aspectRatio: '4/3', outline: clickedImageId === image.id ? '3px solid #2563eb' : 'none' }}
+                      onMouseEnter={() => setHoveredImageId(image.id)}
+                      onMouseLeave={() => setHoveredImageId(prev => prev === image.id ? null : prev)}
+                      onClick={() => setClickedImageId(prev => prev === image.id ? null : image.id)}
+                    >
+                      <img
+                        src={image.url}
+                        alt={image.filename}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.2s', transform: hoveredImageId === image.id ? 'scale(1.03)' : 'scale(1)' }}
+                      />
+                      {!isImagesLoading && (
+                        <button
+                          aria-label="Delete image"
+                          title="Delete"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteImage(image.id); }}
+                          style={{
+                            position: 'absolute',
+                            top: 6,
+                            right: 6,
+                            width: 22,
+                            height: 22,
+                            borderRadius: '50%',
+                            border: 'none',
+                            backgroundColor: 'rgba(0,0,0,0.7)',
+                            color: 'white',
+                            fontSize: 14,
+                            lineHeight: '22px',
+                            textAlign: 'center',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {venueImages.length === 0 && !isImagesLoading && (
+                    <div style={{ fontSize:'0.75rem', color:'#6b7280' }}>No images yet.</div>
+                  )}
+                </div>
+
+                {/* Full-size preview area */}
+                <div style={{ marginTop: '1rem' }}>
+                  {activePreviewImage ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                      <img
+                        src={activePreviewImage.url}
+                        alt={activePreviewImage.filename}
+                        style={{ maxWidth: 800, maxHeight: 800, width: 'auto', height: 'auto', objectFit: 'contain', borderRadius: 8, boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}
+                      />
+                    </div>
+                  ) : (
+                    <div style={{
+                      width: '100%',
+                      minHeight: 300,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: '#f3f4f6',
+                      border: '2px dashed #d1d5db',
+                      borderRadius: 8,
+                      color: '#6b7280',
+                      fontStyle: 'italic',
+                      fontSize: '0.9rem'
+                    }}>
+                      Hover or click a thumbnail to preview
+                    </div>
+                  )}
+                </div>
+
+                {isImagesLoading && (
+                  <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', zIndex:10 }}>
+                    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, background:'rgba(255,255,255,0.85)', padding:'1rem 1.25rem', borderRadius:8, boxShadow:'0 4px 10px rgba(0,0,0,0.08)' }}>
+                      <span style={{ width:42, height:42, border:'5px solid #93c5fd', borderTopColor:'#3b82f6', borderRadius:'50%', animation:'nw5spin 0.7s linear infinite' }} />
+                      <span style={{ fontSize:'0.75rem', color:'#374151', fontWeight:600 }}>Loading images…</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -517,7 +550,7 @@ function VenueModalUI(props: any) {
                   disabled={creating}
                   style={{
                     padding: '0.6rem 1.25rem',
-                    backgroundColor: creating ? '#9ca3af' : creationBorderColor,
+                    backgroundColor: creating ? '#9ca3af' : '#2563eb',
                     color: 'white',
                     border: 'none',
                     borderRadius: 6,
@@ -637,7 +670,7 @@ function VenueModalUI(props: any) {
       {mode === 'create' && showRegionSelect && (
         <LocalityPickerModal
           title="Select Region"
-          localities={regions.map(r => ({ id: r.id, name: r.code ? `${r.code} — ${r.name}` : r.name }))}
+          localities={regions.map((r: any) => ({ id: r.id, name: r.code ? `${r.code} — ${r.name}` : r.name }))}
           selectedLocalities={createData.region_code ? [createData.region_code] : []}
           singleSelect
           onToggleLocality={(text: string) => {
@@ -699,7 +732,7 @@ function VenueModalUI(props: any) {
       {mode === 'view' && venue?.user_owned && showRegionSelect && (
         <LocalityPickerModal
           title="Select Region"
-          localities={regions.map(r => ({ id: r.id, name: r.code ? `${r.code} — ${r.name}` : r.name }))}
+          localities={regions.map((r: any) => ({ id: r.id, name: r.code ? `${r.code} — ${r.name}` : r.name }))}
           selectedLocalities={editData.region_code ? [editData.region_code] : []}
           singleSelect
           onToggleLocality={(text: string) => {
@@ -879,17 +912,13 @@ function VenueModalUI(props: any) {
 
 // Container component - manages all state and logic
 export default function VenueModal(props: any) {
-  const { venue, onClose, onNoteSaved, onStickerUpdate, mode = 'view', onVenueCreated, userRole, onStickerRename } = props;
+  const { venue, onClose, onNoteSaved, onStickerUpdate, onStickerRename, onImageChange, mode = 'view', onVenueCreated, userRole: _userRole } = props;
   const [localNotes, setLocalNotes] = useState('');
   const [originalNotes, setOriginalNotes] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<any>(null);
   const notesTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-  // Image display state
-  const [hoveredImageId, setHoveredImageId] = useState<string | null>(null);
-  const [clickedImageId, setClickedImageId] = useState<string | null>(null);
 
   // Sticker-related state
   const [stickerMeanings, setStickerMeanings] = useState<any[]>([]);
@@ -914,11 +943,17 @@ export default function VenueModal(props: any) {
 
   const {
     notes, images, imagesUploading, setNote, setImages, addImage, removeImage, setImagesLoading, incrementUploading, decrementUploading,
+    imagesLoading // ADD: extract imagesLoading
   } = useVenueStore();
+  const { config: imageConfig } = useImageConfig();
 
   const venueNote = mode === 'view' ? notes?.[venue?.id] : null;
   const venueImages = mode === 'view' ? (images?.[venue?.id] || []) : [];
   const uploadingCount = imagesUploading?.[venue?.id] || 0;
+  const isImagesLoading = imagesLoading?.[venue?.id]; // NEW
+  const maxImageCount = imageConfig?.max_image_count || 20;
+  // Enable edit mode for base fields if viewing a user-owned venue
+  const editModeEnabled = mode === 'view' && !!venue?.user_owned;
 
   // Load notes, images, and stickers on mount
   useEffect(() => {
@@ -936,7 +971,6 @@ export default function VenueModal(props: any) {
     if (venueNote) {
       const noteBody = venueNote.body || '';
       setLocalNotes(noteBody);
-      setOriginalNotes(noteBody);
       setHasUnsavedChanges(false);
       requestAnimationFrame(() => {
         const el = notesTextareaRef.current;
@@ -1030,7 +1064,12 @@ export default function VenueModal(props: any) {
       const response = await fetch(`/api/venues/${venue.id}/stickers`);
       if (response.ok) {
         const data = await response.json();
-        setAssignedStickers(data.stickers || []);
+        const stickers = data.stickers || [];
+        setAssignedStickers(stickers);
+        // Notify parent to update the table
+        if (onStickerUpdate) {
+          onStickerUpdate(venue.id, stickers);
+        }
       }
     } catch (err) {
       console.error('Failed to load venue stickers:', err);
@@ -1038,7 +1077,6 @@ export default function VenueModal(props: any) {
   };
 
   const handleNotesChange = (value: any) => setLocalNotes(value);
-  const handleKeyDown = (e: any) => { if (e.key === 'Escape') handleClose(); };
 
   const handleSave = async () => {
     if (mode === 'create') return;
@@ -1061,6 +1099,10 @@ export default function VenueModal(props: any) {
       console.error('Failed to save notes:', err);
       alert('Failed to save notes. Please try again.');
     } finally { setIsSaving(false); }
+  };
+
+  const handleResetNotes = () => {
+    setLocalNotes(originalNotes);
   };
 
   // Creation mode form state
@@ -1142,47 +1184,39 @@ export default function VenueModal(props: any) {
   };
 
   const handleCreateSubmit = async () => {
-    if (creating) return;
-    if (!validateCreate()) return;
-    setCreating(true);
-    try {
-      const resp = await fetch('/api/venues', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(createData)
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: 'Failed' }));
-        alert(err.error || 'Failed to create venue');
-      } else {
-        const data = await resp.json();
-        if (onVenueCreated) onVenueCreated(data.venue);
-        onClose();
+    if (mode === 'create') {
+      if (!validateCreate()) return;
+      setCreating(true);
+      try {
+        const response = await fetch('/api/venues', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(createData)
+        });
+        if (response.ok) {
+          const data = await response.json();
+          onVenueCreated(data.venue);
+          onClose();
+        } else {
+          alert('Failed to create venue. Please try again.');
+        }
+      } catch (err) {
+        console.error('Failed to create venue:', err);
+        alert('Failed to create venue. Please try again.');
+      } finally {
+        setCreating(false);
       }
-    } catch (e: any) {
-      alert(e?.message || 'Failed to create venue');
-    } finally {
-      setCreating(false);
     }
   };
 
-  const creationBorderColor = userRole === 'admin' ? '#3b82f6' : '#10b981';
-  const creationBadge = userRole === 'admin' ? 'Public (admin)' : 'Mine';
-
-  // Handler for saving edited venue data
+  // Edit submit
+  const validateEdit = () => {
+    const required = ['name', 'type', 'region_code', 'locality', 'address', 'website_url'];
+    const errs = required.filter(f => !editData[f] || String(editData[f]).trim() === ''); setEditErrors(errs); return errs.length === 0;
+  };
   const handleEditSubmit = async () => {
-    const errors: string[] = [];
-    if (!editData.name?.trim()) errors.push('name');
-    if (!editData.type?.trim()) errors.push('type');
-    if (!editData.region_code?.trim()) errors.push('region_code');
-    if (!editData.locality?.trim()) errors.push('locality');
-    if (!editData.address?.trim()) errors.push('address');
-    if (!editData.website_url?.trim()) errors.push('website_url');
-    setEditErrors(errors);
-    if (errors.length > 0) {
-      alert('Please fill in all required fields (*)');
-      return;
-    }
+    if (!editModeEnabled || !venue?.id) return;
+    if (!validateEdit()) return;
     setEditingSaving(true);
     try {
       const response = await fetch(`/api/venues/${venue.id}`, {
@@ -1190,202 +1224,267 @@ export default function VenueModal(props: any) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editData)
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update venue');
+      if (response.ok) {
+        const data = await response.json();
+        // update view fields
+        Object.assign(venue, data.venue || editData);
+      } else {
+        alert('Failed to save venue details. Please try again.');
       }
-      alert('Venue updated successfully');
-      // Reload venue data
-      const reloadResponse = await fetch(`/api/venues/${venue.id}`);
-      if (reloadResponse.ok) {
-        const data = await reloadResponse.json();
-        // Update local venue object if needed (could trigger parent refresh)
-        if (props.onVenueUpdated) props.onVenueUpdated(data);
-      }
-    } catch (e: any) {
-      alert(e?.message || 'Failed to update venue');
+    } catch (err) {
+      console.error('Failed to save venue details:', err);
+      alert('Failed to save venue details. Please try again.');
     } finally {
       setEditingSaving(false);
     }
   };
 
-  const handleClose = () => {
-    if (mode === 'create') {
-      onClose();
-      return;
-    }
-    if (hasUnsavedChanges || uploadingCount > 0) {
-      const message = uploadingCount > 0 ? 'Images are still uploading. Are you sure you want to close?' : 'You have unsaved changes. Are you sure you want to close without saving?';
-      const confirmed = confirm(message);
-      if (!confirmed) return;
-    }
-    onClose();
+  // Picker callbacks
+  const handleToggleLocality = (name: string) => {
+    if (mode === 'create') { setCreateData({ ...createData, locality: name }); setShowLocalitySelect(false); }
+    else if (editModeEnabled) { setEditData({ ...editData, locality: name }); setShowLocalitySelect(false); }
+  };
+  const handleToggleRegion = (text: string) => {
+    const code = text.split(' — ')[0];
+    if (mode === 'create') { setCreateData({ ...createData, region_code: code }); setShowRegionSelect(false); }
+    else if (editModeEnabled) { setEditData({ ...editData, region_code: code }); setShowRegionSelect(false); }
+  };
+  const handleSelectType = (type: string) => {
+    if (mode === 'create') { setCreateData({ ...createData, type }); }
+    else if (editModeEnabled) { setEditData({ ...editData, type }); }
+    setShowTypeSelect(false);
   };
 
-  const handleImageUpload = async (files: any) => {
-    const validFiles: any[] = [];
-    if (venueImages.length + files.length > 20) {
-      alert(`Maximum 20 images allowed. You can upload ${20 - venueImages.length} more.`);
-      return;
-    }
+  // Open file dialog
+  const handleOpenFileDialog = () => {
+    if (mode !== 'view') return; // only in view (images hidden in create)
+    fileInputRef.current?.click();
+  };
 
-    for (const f of Array.from(files)) {
-      let file: any = f;
-      if (!file.type) {
-        const ext = (file.name && file.name.includes('.')) ? file.name.split('.').pop().toLowerCase() : '';
-        const extMap: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml' };
-        const inferred = extMap[ext] || '';
-        if (inferred) {
-          try {
-            file = new File([file], file.name, { type: inferred });
-          } catch (e) {
-            console.warn('VenueModal: failed to create typed File for', file.name, e);
-          }
+  // Image upload handler
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!venue?.id || !e.target.files || e.target.files.length === 0) return;
+    const files = Array.from(e.target.files);
+    for (const file of files) {
+      if (venueImages.length >= maxImageCount) { alert('Max image count reached'); break; }
+      incrementUploading?.(venue.id);
+      try {
+        console.debug('[ImageUpload] Start', { name: file.name, size: file.size, type: file.type, venueId: venue.id });
+        const validationError = validateImageFile(file, imageConfig?.max_image_weight);
+        if (validationError) {
+          console.warn('[ImageUpload] Validation failed', validationError);
+          alert(validationError);
+          continue;
         }
-      }
-      const validationError = validateImageFile(file, 5);
-      if (validationError) { alert(`${file.name}: ${validationError}`); continue; }
+        const processed = await compressImage(file, imageConfig?.target_image_size).catch(err => {
+          console.error('[ImageUpload] Compression failed', err);
+          throw err;
+        });
+        if (!processed) {
+          console.error('[ImageUpload] Compression returned null/undefined');
+          alert('Failed to process image');
+          continue;
+        }
+        const formData = new FormData();
+        formData.append('file', processed, processed.name);
 
-      if (file.type === 'image/svg+xml') {
-        validFiles.push(file);
-        continue;
-      }
+        let resp: Response | null = null;
+        try {
+          resp = await fetch(`/api/venues/${venue.id}/images`, { method: 'POST', body: formData });
+        } catch (fetchErr) {
+          console.error('[ImageUpload] Fetch threw exception', fetchErr);
+          alert('Network error while uploading');
+          continue;
+        }
 
-      try {
-        const compressed = await compressImage(file, 100, 1200);
-        validFiles.push(compressed);
-      } catch (err) {
-        console.warn('VenueModal: compression failed, falling back to original file for upload', file.name, err);
-        validFiles.push(file);
-      }
-    }
+        // Defensive check: ensure resp is a valid Response object
+        if (!resp || typeof resp !== 'object') {
+          console.error('[ImageUpload] Invalid response object', resp);
+          alert('Invalid server response');
+          continue;
+        }
 
-    for (const file of validFiles) {
-      try {
-        incrementUploading?.(venue.id);
-        const formData = new FormData(); formData.append('file', file);
-        const response = await fetch(`/api/venues/${venue.id}/images`, { method: 'POST', body: formData });
-        if (response.ok) {
-          const data = await response.json();
+        // Check if response has ok property (should always be present in standard Response)
+        const hasOkProp = 'ok' in resp && typeof resp.ok === 'boolean';
+        if (!hasOkProp) {
+          console.error('[ImageUpload] Response missing ok property', resp);
+          alert('Invalid server response format');
+          continue;
+        }
+
+        console.debug('[ImageUpload] Response status', resp.status, 'ok:', resp.ok);
+
+        if (resp.ok) {
+          let data: any = null;
+          try {
+            data = await resp.json();
+          } catch (jsonErr) {
+            console.error('[ImageUpload] JSON parse failed', jsonErr);
+            alert('Failed to parse upload response');
+            continue;
+          }
+          if (!data?.image) {
+            console.warn('[ImageUpload] Missing image in response', data);
+            alert('Upload response missing image data');
+            continue;
+          }
           addImage?.(venue.id, data.image);
-          try { props?.onImagesChanged && props.onImagesChanged(venue.id, 'added', data.image); } catch { }
-        } else {
-          let msg = `Failed to upload ${file.name}`;
-          try {
-            const errBody = await response.json();
-            msg = errBody.error || errBody.message || msg;
-          } catch (parseErr) {
-            const text = await response.text().catch(() => '');
-            if (text) msg = text;
+          console.debug('[ImageUpload] Success added image', { imageId: data.image.id });
+          // Notify parent to refresh the table row
+          if (onImageChange) {
+            onImageChange(venue.id, data.image);
           }
-          alert(`${file.name}: ${msg}`);
+        } else {
+          let errPayload: any = null;
+          try {
+            errPayload = await resp.json();
+          } catch {
+            /* ignore parse error */
+          }
+          console.warn('[ImageUpload] Server returned error', resp.status, errPayload);
+          alert(errPayload?.error || `Upload failed (status ${resp.status})`);
         }
       } catch (err) {
-        const emsg = (err as any)?.message || String(err);
-        alert(`Failed to upload ${file.name}: ${emsg}`);
+        console.error('Upload error', err);
+        alert('Upload error');
       } finally {
         decrementUploading?.(venue.id);
       }
     }
+    e.target.value = '';
   };
 
-  const handleDeleteImage = async (imageId: any) => {
-    if (!confirm('Delete this image?')) return;
+  // Delete image
+  const handleDeleteImage = async (imageId: string) => {
+    if (!venue?.id) return;
     try {
-      const response = await fetch(`/api/venues/${venue.id}/images/delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageId }) });
-      if (response.ok) {
-        removeImage?.(venue.id, imageId);
-        try {
-          props?.onImagesChanged && props.onImagesChanged(venue.id, 'removed', imageId);
-        } catch (e) {
-          console.warn('VenueModal: onImagesChanged callback failed', e);
-        }
-      }
-    } catch (err) { console.error('Failed to delete image:', err); }
-  };
-
-  const getNextAvailableColor = () => {
-    const defaultColors = ['#ADD8E6', '#FFB366', '#FFFF99', '#FFB3B3', '#D3D3D3'];
-    const usedColors = new Set((stickerMeanings || []).map(s => s?.color));
-    for (const color of defaultColors) if (!usedColors.has(color)) return color;
-    const hue = Math.floor(Math.random() * 360); return `hsl(${hue}, 50%, 85%)`;
-  };
-
-  const handleAssignSticker = async (stickerMeaningId: any) => {
-    try {
-      const response = await fetch(`/api/venues/${venue.id}/stickers`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'assign', stickerMeaningId })
+      const resp = await fetch(`/api/venues/${venue.id}/images/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageId }) // FIX: server expects imageId (camelCase)
       });
-      if (response.ok) {
-        await loadVenueStickers();
-        if (onStickerUpdate) onStickerUpdate(venue.id);
+      if (resp.ok) {
+        removeImage?.(venue.id, imageId);
+        // Notify parent to refresh the table row
+        if (onImageChange) {
+          onImageChange(venue.id, null, imageId); // null for the image, imageId to indicate deletion
+        }
       } else {
-        const errorData = await response.json();
-        alert(errorData.error || 'Failed to assign sticker');
+        const payload = await resp.json().catch(() => ({}));
+        console.error('Failed to delete image', resp.status, payload);
+        alert(payload?.error || 'Failed to delete image');
       }
-    } catch (error) {
-      console.error('Failed to assign sticker:', error);
+    } catch (err) {
+      console.error('Delete image error', err);
+      alert('Delete image error');
+    }
+  };
+
+  const assignedStickerIds = new Set(assignedStickers.map(s => s.sticker_meaning_id));
+
+  // Next color helper (choose first unused from palette)
+  const getNextAvailableColor = () => {
+    const palette = ['#ADD8E6','#FFB366','#FFFF99','#FFB3B3','#D3D3D3','#A7F3D0','#FBCFE8','#C4B5FD'];
+    const used = new Set(stickerMeanings.map(m => m.color));
+    for (const c of palette) if (!used.has(c)) return c;
+    return '#C4C4C4';
+  };
+
+  // Sticker assign
+  const handleAssignSticker = async (meaningId: string) => {
+    if (!venue?.id) return;
+    if (assignedStickerIds.has(meaningId)) return; // already assigned
+    try {
+      const resp = await fetch(`/api/venues/${venue.id}/stickers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'assign', stickerMeaningId: meaningId })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        // Reload the full assigned stickers list to get complete sticker data
+        await loadVenueStickers();
+      } else {
+        const payload = await resp.json().catch(() => ({}));
+        console.error('Assign failed', resp.status, payload);
+        alert(payload?.error || 'Failed to assign sticker');
+      }
+    } catch (err) {
+      console.error('Assign sticker failed', err);
       alert('Failed to assign sticker');
     }
   };
 
-  const handleUnassignSticker = async (stickerMeaningId: any) => {
+  const handleUnassignSticker = async (meaningId: string) => {
+    if (!venue?.id) return;
     try {
-      const response = await fetch(`/api/venues/${venue.id}/stickers`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'unassign', stickerMeaningId })
+      const resp = await fetch(`/api/venues/${venue.id}/stickers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unassign', stickerMeaningId: meaningId })
       });
-      if (response.ok) {
-        await loadVenueStickers();
-        if (onStickerUpdate) onStickerUpdate(venue.id);
+      if (resp.ok) {
+        setAssignedStickers(prev => {
+          const updated = prev.filter(s => s.sticker_meaning_id !== meaningId);
+          onStickerUpdate?.(venue.id, updated); // NEW immediate parent update
+          return updated;
+        });
       } else {
-        const errorData = await response.json();
-        alert(errorData.error || 'Failed to unassign sticker');
+        const payload = await resp.json().catch(() => ({}));
+        console.error('Unassign failed', resp.status, payload);
+        alert(payload?.error || 'Failed to unassign sticker');
       }
-    } catch (error) {
-      console.error('Failed to unassign sticker:', error);
+    } catch (err) {
+      console.error('Unassign sticker failed', err);
       alert('Failed to unassign sticker');
     }
   };
 
+  // Create sticker meaning
   const handleCreateStickerMeaning = async () => {
-    if (!stickerFormData.label?.trim()) { alert('Label is required'); return; }
-    if (stickerFormData.label.length > 15) { alert('Label must be 15 characters or less'); return; }
-    if (stickerFormData.details && stickerFormData.details.length > 1000) { alert('Details must be 1000 characters or less'); return; }
+    if (!stickerFormData.label.trim()) { alert('Label required'); return; }
     try {
-      const response = await fetch('/api/stickers/meanings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(stickerFormData) });
-      if (response.ok) { await loadStickerMeanings(); setShowCreateStickerDialog(false); setStickerFormData({ color: getNextAvailableColor(), label: '', details: '' }); if (onStickerUpdate) onStickerUpdate(venue.id); }
-      else { const errorData = await response.json(); alert(errorData.error || 'Failed to create sticker'); }
-    } catch (err) { console.error('Failed to create sticker:', err); alert('Failed to create sticker'); }
+      const resp = await fetch('/api/stickers/meanings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(stickerFormData) });
+      if (resp.ok) {
+        const data = await resp.json();
+        setStickerMeanings(prev => [...prev, data.meaning]);
+        setShowCreateStickerDialog(false);
+        setStickerFormData({ color: getNextAvailableColor(), label: '', details: '' });
+      } else alert('Failed to create');
+    } catch (err) { console.error('Create sticker meaning failed', err); }
   };
 
   const handleDeleteStickerMeaning = async (meaning: any) => {
-    // show spinner in menu
+    if (!meaning || !meaning.id) {
+      console.warn('Delete sticker meaning called without valid meaning object', meaning);
+      return;
+    }
+    if (!confirm(`Delete sticker "${meaning.label}"? This cannot be undone.`)) return;
     setDeletingStickerId(meaning.id);
+    console.debug('[Sticker] Deleting meaning', meaning.id);
     try {
-      const confirmed = confirm(`Delete sticker "${meaning.label}"? This will remove it from your stickers list and from any venues where it's assigned.`);
-      if (!confirmed) {
+      const url = `/api/stickers/meanings/delete?id=${encodeURIComponent(meaning.id)}&force=true`;
+      const resp = await fetch(url, { method: 'POST' });
+      const payload = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        console.error('[Sticker] Delete failed', resp.status, payload);
+        alert(payload?.error || `Failed to delete sticker (status ${resp.status})`);
         return;
       }
-      const forceResp = await fetch(`/api/stickers/meanings/delete?id=${meaning.id}&force=true`, { method: 'POST' });
-      if (forceResp.ok) {
-        const data = await forceResp.json().catch(() => ({}));
-        await loadStickerMeanings();
-        await loadVenueStickers();
-        if (onStickerUpdate) {
-          const affected: string[] = Array.isArray((data as any).affectedVenueIds) ? (data as any).affectedVenueIds : [];
-          if (affected.length > 0) {
-            affected.forEach((vid) => { try { onStickerUpdate(vid); } catch { } });
-          } else {
-            try { onStickerUpdate(venue.id); } catch { }
-          }
-        }
-      } else {
-        const err = await forceResp.json().catch(() => ({}));
-        alert(err.error || 'Failed to delete sticker');
+      const affectedVenueIds: string[] = payload.affectedVenueIds || [];
+      setStickerMeanings(prev => prev.filter(m => m.id !== meaning.id));
+      setAssignedStickers(prev => prev.filter(s => s.sticker_meaning_id !== meaning.id));
+      if (affectedVenueIds.length > 0) {
+        console.debug('[Sticker] Delete affected venues', affectedVenueIds);
+        onStickerUpdate?.(affectedVenueIds); // multi-venue path (no per-venue lists available here)
+      } else if (venue?.id) {
+        const updated = assignedStickers.filter(s => s.sticker_meaning_id !== meaning.id);
+        setAssignedStickers(updated);
+        onStickerUpdate?.(venue.id, updated);
       }
     } catch (err) {
-      console.error('Failed to delete sticker:', err);
-      alert('Failed to delete sticker');
+      console.error('[Sticker] Exception deleting meaning', err);
+      alert('Unexpected error deleting sticker meaning');
     } finally {
       setDeletingStickerId(null);
       setContextMenu(null);
@@ -1393,90 +1492,105 @@ export default function VenueModal(props: any) {
   };
 
   const handleRenameStickerMeaning = async () => {
-    if (!renamingSticker) return;
-    if (!renameLabel.trim()) { alert('Label cannot be empty'); return; }
-    if (renameLabel.length > 15) { alert('Label must be 15 characters or less'); return; }
+    if (!renamingSticker || !renamingSticker.id) {
+      console.warn('Rename sticker meaning called without target', renamingSticker);
+      return;
+    }
+    const trimmed = (renameLabel || '').trim();
+    if (!trimmed) {
+      alert('Label required');
+      return;
+    }
+    if (trimmed.length > 15) {
+      alert('Label must be 15 characters or less');
+      return;
+    }
+    console.debug('[Sticker] Renaming meaning', renamingSticker.id, '->', trimmed);
     try {
-      const response = await fetch(`/api/stickers/meanings/update?id=${renamingSticker.id}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ color: renamingSticker.color, label: renameLabel, details: renamingSticker.details || '' })
+      const resp = await fetch(`/api/stickers/meanings/${renamingSticker.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: trimmed })
       });
-      if (response.ok) {
-        await loadStickerMeanings();
-        await loadVenueStickers();
-        setShowRenameStickerDialog(false);
-        setRenamingSticker(null);
-        setRenameLabel('');
-        if (onStickerUpdate) onStickerUpdate(venue.id);
-        // Propagate rename across all venues in table
-        try { onStickerRename && onStickerRename(renamingSticker.id, renameLabel); } catch (e) { console.warn('onStickerRename callback failed', e); }
-      } else {
-        const errorData = await response.json();
-        alert(errorData.error || 'Failed to rename sticker');
+      const payload = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        console.error('[Sticker] Rename failed', resp.status, payload);
+        alert(payload?.error || `Failed to rename sticker (status ${resp.status})`);
+        return;
       }
+      setStickerMeanings(prev => prev.map(m => m.id === renamingSticker.id ? { ...m, label: trimmed } : m));
+      setAssignedStickers(prev => {
+        const updated = prev.map(s => s.sticker_meaning_id === renamingSticker.id ? { ...s, label: trimmed } : s);
+        onStickerRename?.(renamingSticker.id, trimmed);
+        // Also push immediate update to parent for the current venue row
+        if (venue?.id) onStickerUpdate?.(venue.id, updated);
+        return updated;
+      });
+      setShowRenameStickerDialog(false);
+      setRenamingSticker(null);
+      setRenameLabel('');
     } catch (err) {
-      console.error('Failed to rename sticker:', err);
-      alert('Failed to rename sticker');
+      console.error('[Sticker] Exception renaming meaning', err);
+      alert('Unexpected error renaming sticker meaning');
     }
   };
-
-  const assignedStickerIds = new Set((assignedStickers || []).map(s => s?.sticker_meaning_id));
 
   return (
     <ModalPortal>
       <VenueModalUI
-        {...props}
         mode={mode}
+        venue={venue}
         localNotes={localNotes}
         originalNotes={originalNotes}
         hasUnsavedChanges={hasUnsavedChanges}
         isSaving={isSaving}
-        uploadingCount={uploadingCount}
-        venueImages={venueImages}
-        stickerMeanings={stickerMeanings}
-        assignedStickers={assignedStickers}
-        loadingStickerMeanings={loadingStickerMeanings} // NEW
-        loadingAssignedStickers={loadingAssignedStickers} // NEW
-        assignedStickerIds={assignedStickerIds}
-        contextMenu={contextMenu}
-        createData={createData}
-        createErrors={createErrors}
-        creating={creating}
-        editData={editData}
-        editErrors={editErrors}
-        editingSaving={editingSaving}
-        setEditData={setEditData}
-        creationBorderColor={creationBorderColor}
-        creationBadge={creationBadge}
-        handleClose={handleClose}
-        handleKeyDown={handleKeyDown}
         handleNotesChange={handleNotesChange}
         handleSave={handleSave}
-        handleCreateSubmit={handleCreateSubmit}
-        handleEditSubmit={handleEditSubmit}
-        handleAssignSticker={handleAssignSticker}
-        handleUnassignSticker={handleUnassignSticker}
-        handleDeleteImage={handleDeleteImage}
+        handleResetNotes={handleResetNotes}
+        uploadingCount={uploadingCount}
+        isImagesLoading={isImagesLoading}
+        venueImages={venueImages}
+        maxImageCount={maxImageCount}
         handleImageUpload={handleImageUpload}
-        handleCreateStickerMeaning={handleCreateStickerMeaning}
-        handleDeleteStickerMeaning={handleDeleteStickerMeaning}
-        handleRenameStickerMeaning={handleRenameStickerMeaning}
-        setContextMenu={setContextMenu}
-        setCreateData={setCreateData}
-        setShowCreateStickerDialog={setShowCreateStickerDialog}
-        setShowRenameStickerDialog={setShowRenameStickerDialog}
-        setRenamingSticker={setRenamingSticker}
-        setRenameLabel={setRenameLabel}
-        renamingSticker={renamingSticker}
-        renameLabel={renameLabel}
-        showCreateStickerDialog={showCreateStickerDialog}
-        showRenameStickerDialog={showRenameStickerDialog}
-        stickerFormData={stickerFormData}
-        setStickerFormData={setStickerFormData}
+        handleOpenFileDialog={handleOpenFileDialog}
+        handleDeleteImage={handleDeleteImage}
         notesTextareaRef={notesTextareaRef}
         fileInputRef={fileInputRef}
         contextMenuRef={contextMenuRef}
+        stickerMeanings={stickerMeanings}
+        assignedStickers={assignedStickers}
+        assignedStickerIds={assignedStickerIds}
+        handleAssignSticker={handleAssignSticker}
+        handleUnassignSticker={handleUnassignSticker}
+        showCreateStickerDialog={showCreateStickerDialog}
+        setShowCreateStickerDialog={setShowCreateStickerDialog}
+        stickerFormData={stickerFormData}
+        setStickerFormData={setStickerFormData}
+        handleCreateStickerMeaning={handleCreateStickerMeaning}
+        loadingStickerMeanings={loadingStickerMeanings}
+        loadingAssignedStickers={loadingAssignedStickers}
+        contextMenu={contextMenu}
+        setContextMenu={setContextMenu}
+        handleDeleteStickerMeaning={handleDeleteStickerMeaning}
+        showRenameStickerDialog={showRenameStickerDialog}
+        setShowRenameStickerDialog={setShowRenameStickerDialog}
+        renamingSticker={renamingSticker}
+        renameLabel={renameLabel}
+        setRenamingSticker={setRenamingSticker}
+        setRenameLabel={setRenameLabel}
+        handleRenameStickerMeaning={handleRenameStickerMeaning}
         deletingStickerId={deletingStickerId}
-        // picker state
+        editModeEnabled={editModeEnabled}
+        editData={editData}
+        setEditData={setEditData}
+        editErrors={editErrors}
+        editingSaving={editingSaving}
+        handleEditSubmit={handleEditSubmit}
+        createData={createData}
+        setCreateData={setCreateData}
+        createErrors={createErrors}
+        creating={creating}
+        handleCreateSubmit={handleCreateSubmit}
         showLocalitySelect={showLocalitySelect}
         setShowLocalitySelect={setShowLocalitySelect}
         localities={localities}
@@ -1485,13 +1599,39 @@ export default function VenueModal(props: any) {
         regions={regions}
         showTypeSelect={showTypeSelect}
         setShowTypeSelect={setShowTypeSelect}
-        // image state
-        hoveredImageId={hoveredImageId}
-        setHoveredImageId={setHoveredImageId}
-        clickedImageId={clickedImageId}
-        setClickedImageId={setClickedImageId}
+        handleClose={onClose}
       />
+      {/* Locality Picker */}
+      {showLocalitySelect && (
+        <LocalityPickerModal
+          localities={localities}
+          selectedLocalities={(mode === 'create' ? createData.locality : editData.locality) ? [mode === 'create' ? createData.locality : editData.locality] : []}
+          singleSelect
+          onToggleLocality={handleToggleLocality}
+          onClear={() => { if (mode === 'create') setCreateData({ ...createData, locality: '' }); else if (editModeEnabled) setEditData({ ...editData, locality: '' }); }}
+          onClose={() => setShowLocalitySelect(false)}
+        />
+      )}
+      {/* Region Picker */}
+      {showRegionSelect && (
+        <LocalityPickerModal
+          title='Select Region'
+          localities={regions.map((r: any) => ({ id: r.id, name: r.code ? `${r.code} — ${r.name}` : r.name }))}
+          selectedLocalities={(mode === 'create' ? createData.region_code : editData.region_code) ? [mode === 'create' ? createData.region_code : editData.region_code] : []}
+          singleSelect
+          onToggleLocality={handleToggleRegion}
+          onClear={() => { if (mode === 'create') setCreateData({ ...createData, region_code: '' }); else if (editModeEnabled) setEditData({ ...editData, region_code: '' }); }}
+          onClose={() => setShowRegionSelect(false)}
+        />
+      )}
+      {/* Type Picker */}
+      {showTypeSelect && (
+        <TypePickerModal
+          selectedType={mode === 'create' ? createData.type : editData.type}
+          onSelectType={handleSelectType}
+          onClose={() => setShowTypeSelect(false)}
+        />
+      )}
     </ModalPortal>
   );
 }
-

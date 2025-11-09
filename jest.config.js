@@ -1,6 +1,7 @@
 module.exports = {
   preset: 'ts-jest',
-  testEnvironment: 'node',
+  // Use jsdom to support React Testing Library hooks
+  testEnvironment: 'jsdom',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   moduleNameMapper: {
@@ -27,4 +28,3 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   extensionsToTreatAsEsm: [],
 };
-

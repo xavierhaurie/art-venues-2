@@ -57,7 +57,7 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
       };
     }
 
-    const noteJoinSpec = notes_present && userId ? '!inner' : '';
+    const noteJoinSpec = notes_present && userId ? '!inner' : '!left';
     const imageJoinSpec = images_present && userId ? '!inner' : '!left';
     // Build the select with LEFT JOIN to notes and sticker assignments
     const selectClause = `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, owner_user_id,
@@ -130,7 +130,7 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
 
   // Original logic when no sticker filtering
   // Build the select with LEFT JOIN to notes and sticker assignments
-  const noteJoin = notes_present && userId ? '!inner' : '';
+  const noteJoin = notes_present && userId ? '!inner' : '!left';
   const imageJoin = images_present && userId ? '!inner' : '!left';
   const selectClause = userId
     ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, owner_user_id,
@@ -223,19 +223,43 @@ export async function getVenues(params: VenueListParams, userId?: string): Promi
   };
 }
 
+async function getSignedTtlSeconds(): Promise<number> {
+  try {
+    const { data, error } = await supabase.from('config').select('value').eq('name','signed_url_ttl_seconds').limit(1).single();
+    if (error || !data) return 600;
+    const raw = data.value;
+    return /^[0-9.,]+$/.test(raw) ? Number(raw.replace(/,/g,'')) : 600;
+  } catch { return 600; }
+}
 // Helper: create signed URLs for a list of storage paths
 async function signUrls(paths: string[]): Promise<Record<string, string>> {
   const BUCKET = process.env.STORAGE_BUCKET_VENUE_IMAGES || 'artwork';
-  const ttlSeconds = 600; // 10 minutes
+  const ttlSeconds = await getSignedTtlSeconds();
+  const unique = Array.from(new Set(paths.filter(p => !!p && typeof p === 'string')));
   const out: Record<string, string> = {};
-  for (const p of paths) {
+
+  // Sign concurrently for performance
+  await Promise.all(unique.map(async (p) => {
     try {
       const { data: signed, error } = await supabase.storage.from(BUCKET).createSignedUrl(p, ttlSeconds);
-      if (!error && signed?.signedUrl) out[p] = signed.signedUrl;
-    } catch (e) {
-      // continue on error; leave url empty
+      if (!error && signed?.signedUrl) {
+        out[p] = signed.signedUrl;
+      } else if (error) {
+        // Suppress noisy 404 for thumbnail variants; warn for other failures
+        const isThumb = /thumb|_thumb|thumbnail/i.test(p);
+        if (!(error as any).statusCode || (error as any).statusCode !== '404' || !isThumb) {
+          console.warn('Signing URL failed:', p, error.message || error);
+        }
+      }
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      const isThumb = /thumb|_thumb|thumbnail/i.test(p);
+      if (!isThumb) {
+        console.warn('Error creating signed URL:', p, msg);
+      }
     }
-  }
+  }));
+
   return out;
 }
 
@@ -247,9 +271,10 @@ function transformVenueDataBase(data: any[], userId?: string): any[] {
     } else {
       result.user_owned = false;
     }
-    // Handle notes
-    if (userId && venue.note && Array.isArray(venue.note)) {
-      const userNote = venue.note.find((n: any) => n.artist_user_id === userId);
+    // Handle notes (support object or array from Supabase response)
+    if (userId && venue.note) {
+      const notesArr = Array.isArray(venue.note) ? venue.note : [venue.note];
+      const userNote = notesArr.find((n: any) => n && n.artist_user_id === userId);
       result.user_note = userNote ? { id: userNote.id, body: userNote.body } : null;
     } else {
       result.user_note = null;
@@ -346,7 +371,7 @@ export async function searchVenues(
 
   const offset = (page - 1) * page_size;
 
-  const noteJoinS = notes_present && userId ? '!inner' : '';
+  const noteJoinS = notes_present && userId ? '!inner' : '!left';
   const imageJoinS = images_present && userId ? '!inner' : '!left';
   const selectClause = userId
     ? `id, name, type, locality, region_code, public_transit, artist_summary, visitor_summary, created_at, owner_user_id,
@@ -411,4 +436,3 @@ export async function searchVenues(
     has_prev: page > 1,
   };
 }
-

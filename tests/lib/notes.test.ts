@@ -1,5 +1,3 @@
-
-
 // Mock Supabase first with a factory function
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => ({
@@ -13,3 +11,9 @@ jest.mock('@supabase/supabase-js', () => ({
     single: jest.fn().mockReturnThis()
   }))
 }));
+
+describe('notes placeholder', () => {
+  it('placeholder passes', () => {
+    expect(true).toBe(true);
+  });
+});

@@ -28,7 +28,7 @@ export async function POST(
     // 1. Get the image record to verify ownership and get file_path
     const { data: imageRecord, error: fetchError } = await supabase
       .from('venue_image')
-      .select('file_path, artist_user_id')
+      .select('file_path, file_path_thumb, artist_user_id') // include thumb path
       .eq('id', imageId)
       .eq('venue_id', params.venueId)
       .single();
@@ -44,9 +44,11 @@ export async function POST(
     }
 
     // 3. Delete the image file from storage
+    const pathsToRemove = [imageRecord.file_path];
+    if (imageRecord.file_path_thumb) pathsToRemove.push(imageRecord.file_path_thumb);
     const { error: storageError } = await supabase.storage
       .from(BUCKET)
-      .remove([imageRecord.file_path]);
+      .remove(pathsToRemove);
 
     if (storageError) {
       console.error('Error deleting file from storage:', storageError);
