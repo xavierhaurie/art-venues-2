@@ -1105,6 +1105,21 @@ export default function VenueModal(props: any) {
     setLocalNotes(originalNotes);
   };
 
+  // Handle close with unsaved changes confirmation
+  const handleClose = () => {
+    // Only check for unsaved changes in view mode (not create mode)
+    if (mode === 'view' && hasUnsavedChanges) {
+      const confirmed = window.confirm(
+        'You have unsaved changes to your notes. Are you sure you want to close without saving?'
+      );
+      if (!confirmed) {
+        return; // Don't close
+      }
+    }
+    // Proceed with close
+    onClose();
+  };
+
   // Creation mode form state
   const [createData, setCreateData] = useState<any>({
     name: '', type: 'other', region_code: 'BOS', locality: '', address: '', website_url: '', public_transit: '', map_link: '', artist_summary: '', visitor_summary: '', facebook: '', instagram: ''
@@ -1599,7 +1614,7 @@ export default function VenueModal(props: any) {
         regions={regions}
         showTypeSelect={showTypeSelect}
         setShowTypeSelect={setShowTypeSelect}
-        handleClose={onClose}
+        handleClose={handleClose}
       />
       {/* Locality Picker */}
       {showLocalitySelect && (
