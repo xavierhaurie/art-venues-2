@@ -9,6 +9,7 @@ import LocalityPickerModal from '@/components/LocalityPickerModal';
 import VenueTypePickerModal from '@/components/VenueTypePickerModal';
 import StickerPickerModal from '@/components/StickerPickerModal';
 import OtherFiltersModal from '@/components/OtherFiltersModal';
+import FeedbackModal from '@/components/FeedbackModal';
 import { useVenueStore } from '@/lib/store/venueStore';
 
 interface Venue {
@@ -95,6 +96,7 @@ export default function VenuesPage() {
   const [meRole, setMeRole] = useState<string | null>(null);
   const [showCreateVenueModal, setShowCreateVenueModal] = useState(false);
   const [hasNewUnsortedVenue, setHasNewUnsortedVenue] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   // Locality picker state
   const [localities, setLocalities] = useState<Array<{id: string, name: string}>>([]);
@@ -772,7 +774,7 @@ export default function VenuesPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-6">{formatRegionsTitle(regionNames)}</h1>
 
-        {/* Add Venue + credits notice + Download CSV */}
+        {/* Add Venue + credits notice + Download CSV + Feedback */}
         <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'12px' }}>
           <button
             type="button"
@@ -789,11 +791,20 @@ export default function VenuesPage() {
           <button
             type="button"
             onClick={handleDownloadCsv}
-            style={{ padding:'0.5rem 1rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:6, fontWeight:600, cursor:'pointer', whiteSpace: 'nowrap', marginRight: '50px' }}
+            style={{ padding:'0.5rem 1rem', backgroundColor:'#10b981', color:'white', border:'none', borderRadius:6, fontWeight:600, cursor:'pointer', whiteSpace: 'nowrap' }}
             onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = '#059669'; }}
             onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = '#10b981'; }}
           >
             Download CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowFeedbackModal(true)}
+            style={{ padding:'0.5rem 1rem', backgroundColor:'#8b5cf6', color:'white', border:'none', borderRadius:6, fontWeight:600, cursor:'pointer', whiteSpace: 'nowrap', marginRight: '50px' }}
+            onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = '#7c3aed'; }}
+            onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = '#8b5cf6'; }}
+          >
+            Help & Feedback
           </button>
         </div>
 
@@ -1157,6 +1168,10 @@ export default function VenuesPage() {
             setHasNewUnsortedVenue(true);
           }}
         />
+      )}
+
+      {showFeedbackModal && (
+        <FeedbackModal onClose={() => setShowFeedbackModal(false)} />
       )}
     </div>
   );
