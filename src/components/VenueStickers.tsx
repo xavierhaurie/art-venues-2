@@ -51,14 +51,14 @@ export default function VenueStickers({ venueId, refreshSignal, initialStickers 
 
   if (loading) {
     return (
-      <div className="flex items-center gap-1 p-2 flex-wrap">
+      <div className="flex items-center gap-1 p-0 flex-wrap">
         <div className="text-xs text-gray-500">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-1 p-2 flex-wrap">
+    <div className="flex items-center gap-1 p-0 flex-wrap">
       {venueStickers.map((sticker) => (
         <div
           key={sticker.id}
@@ -68,7 +68,7 @@ export default function VenueStickers({ venueId, refreshSignal, initialStickers 
             fontSize: '14px',
             padding: '5px',
             borderRadius: '5px',
-            margin: '4px'
+            margin: '0 4px 4px 0'
           }}
           title={sticker.details || sticker.label}
         >

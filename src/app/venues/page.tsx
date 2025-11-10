@@ -1027,7 +1027,7 @@ export default function VenuesPage() {
                       <VenueStickers venueId={venue.id} refreshSignal={stickerRefreshSignals[venue.id] || 0} initialStickers={venue.user_stickers} />
                       {renderNotesCell(venue.id)}
                       {/* Quick glance: image count */}
-                      {typeof venue.images_count === 'number' && (
+                      {typeof venue.images_count === 'number' && venue.images_count > 0 && (
                         <div style={{ fontSize: '12px', color: '#6b7280' }}>Artwork: {venue.images_count}</div>
                       )}
                       {venue.images && venue.images.length > 0 && (
