@@ -1,12 +1,15 @@
 // filepath: src/app/api/feedback/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUserId } from '@/lib/session';
 import { createClient } from '@supabase/supabase-js';
-import { sendFeedbackConfirmationEmail } from '@/lib/email';
-import crypto from 'crypto';
+import { sendFeedbackNotification } from '@/lib/email';
+import { RateLimiterMemory } from 'rate-limiter-flexible';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+const messageLimiter = new RateLimiterMemory({ points: 10, duration: 3600 }); // 10 per hour
 
 /**
  * POST /api/feedback
@@ -15,82 +18,87 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
  */
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    // Rate limit per user
+    try {
+      await messageLimiter.consume(userId);
+    } catch (rlErr: any) {
+      const retrySec = Math.ceil((rlErr.msBeforeNext || 0) / 1000);
+      return NextResponse.json({ error: "You've reached the maximum number of messages sent in an hour. Please wait and submit again later.", retryAfter: retrySec }, { status: 429 });
+    }
+
     const body = await request.json();
-    const { email, message } = body;
-
-    // Validate input
-    if (!email || typeof email !== 'string' || !email.includes('@')) {
-      return NextResponse.json(
-        { error: 'Valid email address is required' },
-        { status: 400 }
-      );
-    }
-
+    const { message } = body;
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
-
     if (message.length > 5000) {
-      return NextResponse.json(
-        { error: 'Message is too long (max 5000 characters)' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Message too long (max 5000 characters)' }, { status: 400 });
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const supabaseLocal = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user info (email + name)
+    const { data: userRow, error: userError } = await supabaseLocal
+      .from('app_user')
+      .select('email,name')
+      .eq('id', userId)
+      .single();
+    if (userError || !userRow) {
+      console.error('Failed to fetch user row:', userError);
+      return NextResponse.json({ error: 'User lookup failed' }, { status: 500 });
+    }
+
     const trimmedMessage = message.trim();
 
-    // Generate token
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-
-    // Store token in database
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-
-    const { error: insertError } = await supabase
-      .from('feedback_email_token')
-      .insert({
-        email: normalizedEmail,
-        message: trimmedMessage,
-        token_hash: tokenHash,
-        expires_at: expiresAt.toISOString(),
-      });
-
+    const { error: insertError } = await supabaseLocal
+      .from('contact_message')
+      .insert({ user_id: userId, message: trimmedMessage, processed: false });
     if (insertError) {
-      console.error('Failed to create feedback token:', insertError);
-      return NextResponse.json(
-        { error: 'Failed to submit feedback. Please try again.' },
-        { status: 500 }
-      );
+      console.error('Failed to insert contact_message:', insertError);
+      return NextResponse.json({ error: 'Failed to save message' }, { status: 500 });
     }
 
-    // Send confirmation email
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${request.nextUrl.protocol}//${request.nextUrl.host}`;
-    const confirmLink = `${baseUrl}/api/feedback/confirm?token=${token}`;
+    // Fetch support emails
+    const { data: cfgRows, error: cfgError } = await supabaseLocal
+      .from('config')
+      .select('value')
+      .eq('name', 'support_email');
+    if (cfgError) {
+      console.error('Failed loading support emails:', cfgError);
+    }
+    const supportEmails = (cfgRows || []).map(r => r.value).filter(v => !!v);
+
+    // Compose notification body
+    const subject = 'New message from a Minilist user';
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width:600px;">
+        <h2>${subject}</h2>
+        <p><strong>User Email:</strong> ${userRow.email}</p>
+        <p><strong>User Name:</strong> ${userRow.name || '(no name)'} </p>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:16px 0" />
+        <p style="white-space:pre-wrap;">${trimmedMessage}</p>
+      </div>
+    `;
+    const textBody = `User Email: ${userRow.email}\nUser Name: ${userRow.name || '(no name)'}\n\nMessage:\n${trimmedMessage}`;
 
     try {
-      await sendFeedbackConfirmationEmail(normalizedEmail, confirmLink);
-    } catch (emailError) {
-      console.error('Failed to send confirmation email:', emailError);
-      return NextResponse.json(
-        { error: 'Failed to send confirmation email. Please try again.' },
-        { status: 500 }
-      );
+      if (supportEmails.length > 0) {
+        // Reuse notification function (pass user email + message in one string)
+        await sendFeedbackNotification(supportEmails, userRow.email, `Name: ${userRow.name || '(no name)'}\n\n${trimmedMessage}`);
+      }
+    } catch (emailErr) {
+      console.error('Support notification failed:', emailErr);
+      // Do not fail request due to email
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Please check your email to confirm your feedback submission.',
-    });
-  } catch (error) {
-    console.error('Feedback submission error:', error);
-    return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, message: trimmedMessage });
+  } catch (err) {
+    console.error('Unhandled /api/feedback error:', err);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
-

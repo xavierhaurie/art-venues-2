@@ -78,7 +78,14 @@ function VenueModalUI(props: any) {
                 <span style={{ marginTop: 4, fontSize: 12, fontStyle: 'italic', color: '#6b7280' }}>{creationBadge}</span>
               </div>
             ) : (
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0 }}>{venue?.name}</h2>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 600, margin: 0 }}>{venue?.name}</h2>
+                {venue?.user_owned && (
+                  <span style={{ fontSize: '0.875rem', fontStyle: 'italic', color: '#6b7280', marginTop: '4px' }}>
+                    Venue contributed by me
+                  </span>
+                )}
+              </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               {isSaving && mode === 'view' && <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Saving...</span>}

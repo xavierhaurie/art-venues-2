@@ -97,6 +97,8 @@ export default function VenuesPage() {
   const [showCreateVenueModal, setShowCreateVenueModal] = useState(false);
   const [hasNewUnsortedVenue, setHasNewUnsortedVenue] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackSuccess, setFeedbackSuccess] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
+  const [feedbackRateLimited, setFeedbackRateLimited] = useState<{ limited: boolean; msg: string }>({ limited: false, msg: '' });
 
   // Locality picker state
   const [localities, setLocalities] = useState<Array<{id: string, name: string}>>([]);
@@ -1002,6 +1004,11 @@ export default function VenuesPage() {
                   <td className="text-blue-600 hover:text-blue-800 cursor-pointer" style={{ padding: '10px', fontWeight: 'bold', borderRight: '1px solid #e0e0e0', position: 'relative' }}>
                     <div style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none', cursor: 'pointer' }} onClick={() => handleVenueClick(venue.id)}>
                       {venue.name}
+                      {venue.user_owned && (
+                        <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#6b7280', fontWeight: 'normal', marginTop: '2px' }}>
+                          Venue contributed by me
+                        </div>
+                      )}
                     </div>
                   </td>
                   {/* Stickers, Notes & Artwork next */}
@@ -1171,7 +1178,31 @@ export default function VenuesPage() {
       )}
 
       {showFeedbackModal && (
-        <FeedbackModal onClose={() => setShowFeedbackModal(false)} />
+        <FeedbackModal
+          onClose={() => setShowFeedbackModal(false)}
+          onSuccess={(msg) => {
+            setShowFeedbackModal(false);
+            setFeedbackSuccess({ visible: true, message: msg });
+          }}
+        />
+      )}
+
+      {feedbackSuccess.visible && (
+        <>
+          <div style={{ position:'fixed', inset:0 as any, background:'rgba(0,0,0,0.7)', zIndex:11000 }} onClick={() => setFeedbackSuccess({ visible:false, message:'' })} />
+          <div style={{ position:'fixed', inset:0 as any, display:'flex', alignItems:'center', justifyContent:'center', zIndex:11001, pointerEvents:'none' }}>
+            <div style={{ background:'#fff', borderRadius:8, width:'100%', maxWidth:520, padding:'1.5rem', fontFamily:'Arial, Helvetica, sans-serif', pointerEvents:'auto', boxShadow:'0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)' }}>
+              <h3 style={{ fontSize:'1.125rem', fontWeight:600, margin:0, color:'#111827' }}>Your message was received, we will respond very soon.</h3>
+              <div style={{ marginTop:'0.75rem', color:'#374151' }}>
+                <div style={{ fontSize:'0.875rem', color:'#6b7280', marginBottom:4 }}>Here is your message:</div>
+                <div style={{ whiteSpace:'pre-wrap', background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:6, padding:'0.75rem' }}>{feedbackSuccess.message}</div>
+              </div>
+              <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'1rem' }}>
+                <button type='button' onClick={() => setFeedbackSuccess({ visible:false, message:'' })} style={{ padding:'0.5rem 1rem', background:'#3b82f6', color:'#fff', border:'none', borderRadius:6, fontSize:'0.875rem', fontWeight:600, cursor:'pointer' }} onMouseEnter={e=> e.currentTarget.style.background='#2563eb'} onMouseLeave={e=> e.currentTarget.style.background='#3b82f6'}>Close</button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

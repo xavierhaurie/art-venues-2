@@ -1,32 +1,25 @@
 -- 14.contact-messages-table.sql
--- Create contact_messages table, feedback_email_token table, and add support_email config
+-- Define contact_message table (simplified message capture)
 
--- Contact messages table
-CREATE TABLE IF NOT EXISTS contact_messages (
+DROP TABLE IF EXISTS feedback_email_token CASCADE;
+DROP TABLE IF EXISTS contact_messages CASCADE; -- old plural name
+
+CREATE TABLE contact_message (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  email text NOT NULL,
+  user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
   message text NOT NULL,
+  processed boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_contact_messages_created_at ON contact_messages(created_at DESC);
-CREATE INDEX idx_contact_messages_email ON contact_messages(email);
+CREATE INDEX idx_contact_message_processed ON contact_message(processed);
+CREATE INDEX idx_contact_message_created_at ON contact_message(created_at DESC);
 
--- Feedback email confirmation tokens
-CREATE TABLE IF NOT EXISTS feedback_email_token (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  email text NOT NULL,
-  message text NOT NULL,
-  token_hash text NOT NULL UNIQUE,
-  expires_at timestamptz NOT NULL,
-  consumed_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
+-- Keep support_email config seed
+INSERT INTO config (name, value) VALUES ('support_email', 'support@artvenues.com')
+ON CONFLICT (name) DO NOTHING;
 
-CREATE INDEX idx_feedback_email ON feedback_email_token(email);
-CREATE INDEX idx_feedback_expires ON feedback_email_token(expires_at) WHERE consumed_at IS NULL;
-
--- Update cleanup function to include feedback tokens
+-- Cleanup function no longer manages feedback tokens; retain other cleanup logic
 CREATE OR REPLACE FUNCTION cleanup_expired_auth_tokens()
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
@@ -37,16 +30,6 @@ BEGIN
 
   -- Delete expired unused magic links
   DELETE FROM magic_link_token
-  WHERE consumed_at IS NULL
-    AND expires_at < NOW();
-
-  -- Delete consumed feedback tokens older than 24 hours
-  DELETE FROM feedback_email_token
-  WHERE consumed_at IS NOT NULL
-    AND consumed_at < NOW() - INTERVAL '24 hours';
-
-  -- Delete expired unused feedback tokens
-  DELETE FROM feedback_email_token
   WHERE consumed_at IS NULL
     AND expires_at < NOW();
 
@@ -64,9 +47,3 @@ BEGIN
   WHERE created_at < NOW() - INTERVAL '90 days';
 END;
 $$;
-
--- Add support_email config value
-INSERT INTO config (name, value) VALUES
-  ('support_email', 'support@artvenues.com')
-ON CONFLICT (name) DO NOTHING;
-
