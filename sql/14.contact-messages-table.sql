@@ -47,3 +47,35 @@ BEGIN
   WHERE created_at < NOW() - INTERVAL '90 days';
 END;
 $$;
+
+-- Drop and recreate editable view for contact messages with user details
+DROP VIEW IF EXISTS contact_message_details CASCADE;
+CREATE VIEW contact_message_details AS
+SELECT
+  cm.id,
+  cm.user_id,
+  u.email AS user_email,
+  u.name  AS user_name,
+  cm.message,
+  cm.processed,
+  cm.created_at
+FROM contact_message cm
+LEFT JOIN app_user u ON u.id = cm.user_id;
+
+-- Updatable rules mapping DML on the view to the base table
+CREATE OR REPLACE RULE contact_message_details_ins AS
+  ON INSERT TO contact_message_details DO INSTEAD
+  INSERT INTO contact_message (user_id, message, processed)
+  VALUES (NEW.user_id, NEW.message, COALESCE(NEW.processed, false));
+
+CREATE OR REPLACE RULE contact_message_details_upd AS
+  ON UPDATE TO contact_message_details DO INSTEAD
+  UPDATE contact_message SET
+    user_id   = COALESCE(NEW.user_id, contact_message.user_id),
+    message   = COALESCE(NEW.message, contact_message.message),
+    processed = COALESCE(NEW.processed, contact_message.processed)
+  WHERE contact_message.id = OLD.id;
+
+CREATE OR REPLACE RULE contact_message_details_del AS
+  ON DELETE TO contact_message_details DO INSTEAD
+  DELETE FROM contact_message WHERE id = OLD.id;
