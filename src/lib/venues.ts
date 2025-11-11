@@ -436,3 +436,21 @@ export async function searchVenues(
     has_prev: page > 1,
   };
 }
+
+/**
+ * M0-VEN-03: Venue filters API
+ * AC: GET /venue/filters returns distinct localities, types, and transit options for a region.
+ */
+export async function getVenueFilters(region: string): Promise<{ localities: string[]; types: string[]; transitOptions: string[] }> {
+  // Fetch distinct locality and type values plus transit options from Supabase.
+  // Using service-role client already defined above.
+  const localityQuery = supabase.from('venue').select('locality').eq('region_code', region).not('locality','is', null);
+  const typeQuery = supabase.from('venue').select('type').eq('region_code', region).not('type','is', null);
+  const transitQuery = supabase.from('venue').select('public_transit').eq('region_code', region).not('public_transit','is', null);
+
+  const [localitiesRes, typesRes, transitRes] = await Promise.all([localityQuery, typeQuery, transitQuery]);
+  const localities = Array.from(new Set((localitiesRes.data || []).map(r => r.locality))).sort();
+  const types = Array.from(new Set((typesRes.data || []).map(r => r.type))).sort();
+  const transitOptions = Array.from(new Set((transitRes.data || []).map(r => r.public_transit))).sort();
+  return { localities, types, transitOptions };
+}

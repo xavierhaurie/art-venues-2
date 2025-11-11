@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/session';
+import { getCurrentUserId } from '@/lib/session';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { venueId: string } }
 ) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const userId = await getCurrentUserId();
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

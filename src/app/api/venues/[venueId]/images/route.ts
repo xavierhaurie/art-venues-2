@@ -4,9 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireArtist } from '@/lib/rbac';
 import { createClient } from '@supabase/supabase-js';
 import { getSession } from '@/lib/session';
-
-// @ts-ignore
-import sharp = require('sharp');
+import sharp from 'sharp';
 
 const DEV_BYPASS_AUTH = process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true';
 
