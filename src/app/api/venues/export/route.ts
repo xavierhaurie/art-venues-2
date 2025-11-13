@@ -184,3 +184,4 @@ function escapeCsvField(value: string): string {
   return value;
 }
 
+export const dynamic = 'force-dynamic';

@@ -29,7 +29,7 @@ export async function withRoleCheck(
       'rbac',
       null,
       { reason: 'no_session', endpoint: request.nextUrl.pathname },
-      null, // actorUserId
+      undefined, // actorUserId
       request.ip,
       request.headers.get('user-agent') || undefined
     );
@@ -49,7 +49,7 @@ export async function withRoleCheck(
       'rbac',
       null,
       { reason: 'invalid_session', endpoint: request.nextUrl.pathname },
-      null, // actorUserId
+      undefined, // actorUserId
       request.ip,
       request.headers.get('user-agent') || undefined
     );

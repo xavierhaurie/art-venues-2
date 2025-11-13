@@ -141,6 +141,16 @@ Visit http://localhost:3000
 3. Add redirect URI: `http://localhost:3000/api/auth/oauth/facebook/callback`
 4. Copy App ID and Secret to `.env.local`
 
+## 📦 Deployment (Vercel)
+
+- Project uses Next.js App Router and dynamic API routes. Follow this guide for a reliable deploy:
+  - See docs/VERCEL-DEPLOYMENT.md
+- Minimal production checklist:
+  - Set env vars (SUPABASE keys, JWT_SECRET, STORAGE_BUCKET_VENUE_IMAGES)
+  - Node.js 18/20 on Vercel; install: npm ci; build: npm run build
+  - Ensure Supabase RPC create_default_stickers_for_user exists
+  - Images route runs on Node runtime and uses sharp (pre-configured)
+
 ## 🧪 Testing
 
 Run all tests:
@@ -254,4 +264,3 @@ For questions or issues, please contact the development team or create an issue 
 ---
 
 **Status**: 🟢 M0-AUTH-01 Complete | 🟡 M0 Sprint In Progress
-

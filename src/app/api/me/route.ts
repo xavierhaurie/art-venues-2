@@ -7,3 +7,4 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ userId: session.userId, role: session.role }, { status: 200 });
 }
 
+export const dynamic = 'force-dynamic';

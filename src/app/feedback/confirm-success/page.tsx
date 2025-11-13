@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+export const dynamic = 'force-dynamic';
+
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
-export default function FeedbackConfirmSuccessPage() {
+function ConfirmSuccessInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState<'processing' | 'success'>('processing');
@@ -83,3 +85,10 @@ export default function FeedbackConfirmSuccessPage() {
   );
 }
 
+export default function FeedbackConfirmSuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" /></div>}>
+      <ConfirmSuccessInner />
+    </Suspense>
+  );
+}
