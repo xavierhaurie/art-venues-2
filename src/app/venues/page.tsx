@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useConfigStore } from '@/lib/store/configStore';
 import VenueModal from '@/components/VenueModal';
 import VenueStickers from '@/components/VenueStickers';
 import LocalityPickerModal from '@/components/LocalityPickerModal';
@@ -11,6 +10,7 @@ import StickerPickerModal from '@/components/StickerPickerModal';
 import OtherFiltersModal from '@/components/OtherFiltersModal';
 import FeedbackModal from '@/components/FeedbackModal';
 import { useVenueStore } from '@/lib/store/venueStore';
+import { useConfigStore } from '@/lib/store/configStore';
 
 interface Venue {
   id: string;
