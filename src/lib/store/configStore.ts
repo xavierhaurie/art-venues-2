@@ -35,3 +35,4 @@ export const useConfigStore = create<ConfigState>((set) => ({
   },
 }));
 
+export { useConfigStore as ConfigStore };
