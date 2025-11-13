@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
+import path from "node:path";
 const nextConfig = {
-  reactStrictMode: true,
+    webpack: (config) => {
+        // Ensure alias works even if tsconfig paths aren’t picked up
+        config.resolve.alias["@"] = path.resolve(process.cwd());
+        return config;
+    },
+    reactStrictMode: true,
   images: {
     formats: ['image/avif','image/webp'],
   },
@@ -8,5 +14,6 @@ const nextConfig = {
     serverComponentsExternalPackages: ['sharp'],
   },
 };
-module.exports = nextConfig;
+// module.exports = nextConfig;
 
+export default nextConfig;
