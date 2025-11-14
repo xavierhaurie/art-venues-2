@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import VenueStickers from 'src/components/VenueStickers';
-import VenueModal from "@/components/VenueModal";
+import VenueStickers from '/src/components/VenueStickers';
+import VenueModal from "/src/components/VenueModal";
 import LocalityPickerModal from '@/components/LocalityPickerModal';
 import VenueTypePickerModal from '@/components/VenueTypePickerModal';
 import StickerPickerModal from '@/components/StickerPickerModal';
