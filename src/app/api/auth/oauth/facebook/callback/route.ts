@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserByEmail, createUser, getOAuthAccount, createOAuthAccount, updateUserLastLogin, createSessionRecord, logAuditEvent } from '/lib/db';
-import { createSession } from '/lib/session';
-import { checkRateLimit, getIPRateLimitKey } from '/lib/rate-limit';
+import { getUserByEmail, createUser, getOAuthAccount, createOAuthAccount, updateUserLastLogin, createSessionRecord, logAuditEvent } from '@/lib/db';
+import { createSession } from '@/lib/session';
+import { checkRateLimit, getIPRateLimitKey } from '@/lib/rate-limit';
 
 /**
  * GET /api/auth/oauth/facebook/callback

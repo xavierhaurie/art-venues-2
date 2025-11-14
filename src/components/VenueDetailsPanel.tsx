@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Venue } from '/types/venue';
+import { Venue } from '@/types/venue';
 
 interface VenueImage {
   id: string;

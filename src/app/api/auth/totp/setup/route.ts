@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { setupTOTP, logAuditEvent } from '/lib/db';
-import { verifySession } from '/lib/session';
+import { setupTOTP, logAuditEvent } from '@/lib/db';
+import { verifySession } from '@/lib/session';
 
 /**
  * POST /api/auth/totp/setup

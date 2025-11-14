@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyMagicLinkToken, getUserByEmail, updateUserLastLogin, logAuditEvent } from '/lib/db';
-import { createSession } from '/lib/session';
-import { createSessionRecord } from '/lib/db';
+import { verifyMagicLinkToken, getUserByEmail, updateUserLastLogin, logAuditEvent } from '@/lib/db';
+import { createSession } from '@/lib/session';
+import { createSessionRecord } from '@/lib/db';
 
 /**
  * GET /api/auth/magic-link/verify?token=xxx

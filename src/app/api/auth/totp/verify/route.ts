@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserById, enableTOTP, markFirstLoginCompleted, revokeAllUserSessions, createSessionRecord, logAuditEvent, verifyBackupCode } from '/lib/db';
-import { verifySession, createSession } from '/lib/session';
-import { verifyTOTP } from '/lib/totp';
-import { checkRateLimit, getUserRateLimitKey, resetRateLimit } from '/lib/rate-limit';
+import { getUserById, enableTOTP, markFirstLoginCompleted, revokeAllUserSessions, createSessionRecord, logAuditEvent, verifyBackupCode } from '@/lib/db';
+import { verifySession, createSession } from '@/lib/session';
+import { verifyTOTP } from '@/lib/totp';
+import { checkRateLimit, getUserRateLimitKey, resetRateLimit } from '@/lib/rate-limit';
 
 /**
  * POST /api/auth/totp/verify

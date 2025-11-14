@@ -1,8 +1,8 @@
 // filepath: src/app/api/feedback/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '/lib/session';
+import { getCurrentUserId } from '@/lib/session';
 import { createClient } from '@supabase/supabase-js';
-import { sendFeedbackNotification } from '/lib/email';
+import { sendFeedbackNotification } from '@/lib/email';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

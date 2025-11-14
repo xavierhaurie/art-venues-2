@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '/lib/db';
+import { supabase } from '@/lib/db';
 
 // GET /api/regions - returns all region rows (for title composition)
 export async function GET(_request: NextRequest) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireArtist } from '/lib/rbac';
-import { getVenueNotes, createNote, updateNote, deleteNote, getNote } from '/lib/notes';
+import { requireArtist } from '@/lib/rbac';
+import { getVenueNotes, createNote, updateNote, deleteNote, getNote } from '@/lib/notes';
 
 export async function GET(request: NextRequest) {
   // Check authentication and role

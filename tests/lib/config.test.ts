@@ -3,8 +3,8 @@
 // We mock fetch and the config table response.
 
 import { act, renderHook } from '@testing-library/react';
-import { useConfigStore } from '/lib/store/configStore';
-import { useImageConfig } from '/lib/hooks/useImageConfig';
+import { useConfigStore } from '@/lib/store/configStore';
+import { useImageConfig } from '@/lib/hooks/useImageConfig';
 
 // Mock global fetch
 const mockConfig = {

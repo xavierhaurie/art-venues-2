@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifySession } from '/lib/session';
-import { isSessionRevoked, logAuditEvent } from '/lib/db';
-import { UserRole } from '/types/auth';
+import { verifySession } from '@/lib/session';
+import { isSessionRevoked, logAuditEvent } from '@/lib/db';
+import { UserRole } from '@/types/auth';
 
 // DEVELOPMENT MODE: Set to true to bypass authentication (NEVER in production!)
 const DEV_BYPASS_AUTH = process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true';
