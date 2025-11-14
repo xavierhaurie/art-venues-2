@@ -3,14 +3,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import VenueStickers from '/components/VenueStickers';
-import VenueModal from "./components/VenueModal";
-import LocalityPickerModal from '../src/components/LocalityPickerModal';
-import VenueTypePickerModal from '@/components/VenueTypePickerModal';
-import StickerPickerModal from '@/components/StickerPickerModal';
-import OtherFiltersModal from '@/components/OtherFiltersModal';
-import FeedbackModal from '@/components/FeedbackModal';
-import { useVenueStore } from '@/lib/store/venueStore';
-import { useConfigStore } from '@/lib/store/configStore';
+import VenueModal from "/components/VenueModal";
+import LocalityPickerModal from '/components/LocalityPickerModal';
+import VenueTypePickerModal from '/components/VenueTypePickerModal';
+import StickerPickerModal from '/components/StickerPickerModal';
+import OtherFiltersModal from '/components/OtherFiltersModal';
+import FeedbackModal from '/components/FeedbackModal';
+import { useVenueStore } from '/lib/store/venueStore';
+import { useConfigStore } from '/lib/store/configStore';
 
 interface Venue {
   id: string;
