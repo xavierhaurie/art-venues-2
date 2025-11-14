@@ -1,4 +1,3 @@
-/** @type {import('next').NextConfig} */
 import path from "node:path";
 const nextConfig = {
   //   webpack: (config) => {
