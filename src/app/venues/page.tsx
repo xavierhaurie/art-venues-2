@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import VenueStickers from '/src/components/VenueStickers';
-import VenueModal from "/src/components/VenueModal";
-import LocalityPickerModal from '@/components/LocalityPickerModal';
+import VenueStickers from '/components/VenueStickers';
+import VenueModal from "./components/VenueModal";
+import LocalityPickerModal from '../src/components/LocalityPickerModal';
 import VenueTypePickerModal from '@/components/VenueTypePickerModal';
 import StickerPickerModal from '@/components/StickerPickerModal';
 import OtherFiltersModal from '@/components/OtherFiltersModal';
