@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import VenueStickers from '@/components/VenueStickers';
 import VenueModal from "@/components/VenueModal";
 import LocalityPickerModal from '@/components/LocalityPickerModal';
 import VenueTypePickerModal from '@/components/VenueTypePickerModal';
