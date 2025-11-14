@@ -5,10 +5,10 @@ import path from "node:path";
 const nextConfig = {
     webpack: (config) => {
         // Map `@` to `src` so `@/components/...` works in all environments
-        config.resolve.alias = {
-            ...(config.resolve.alias || {}),
-            "@": path.resolve(process.cwd(), ""),
-        };
+        // config.resolve.alias = {
+        //     ...(config.resolve.alias || {}),
+        //     "@": path.resolve(process.cwd(), ""),
+        // };
         return config;
     },
     reactStrictMode: true,
