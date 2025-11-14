@@ -1,5 +1,5 @@
 import path from "node:path";
-const nextConfig = {
+const nextConfig: NextConfig = {
   //   webpack: (config) => {
   //       // Ensure alias works even if tsconfig paths aren’t picked up
   //       config.resolve.alias["@"] = path.resolve(process.cwd(), "src");
