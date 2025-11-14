@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Venue, VenueListParams, VenueListResponse, VenueFilters, VenueType } from '@/types/venue';
+import { Venue, VenueListParams, VenueListResponse, VenueFilters, VenueType } from '/types/venue';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;

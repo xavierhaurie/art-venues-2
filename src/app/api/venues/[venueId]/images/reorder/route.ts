@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '@/lib/session';
+import { getCurrentUserId } from '/lib/session';
 
 export async function POST(
   request: NextRequest,

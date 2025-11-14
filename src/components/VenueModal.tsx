@@ -4,11 +4,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useVenueStore } from '@/lib/store/venueStore';
-import { compressImage, validateImageFile } from '@/lib/imageUtils';
-import LocalityPickerModal from '@/components/LocalityPickerModal';
-import TypePickerModal from '@/components/TypePickerModal';
-import { useImageConfig } from '@/lib/hooks/useImageConfig';
+import { useVenueStore } from '/lib/store/venueStore';
+import { compressImage, validateImageFile } from '/lib/imageUtils';
+import LocalityPickerModal from '/components/LocalityPickerModal';
+import TypePickerModal from '/components/TypePickerModal';
+import { useImageConfig } from '/lib/hooks/useImageConfig';
 
 // Helper component for the portal pattern
 function ModalPortal({ children }: { children: React.ReactNode }) {
