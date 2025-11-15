@@ -11,6 +11,7 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.6",
     "@types/node": "^22.8.1",

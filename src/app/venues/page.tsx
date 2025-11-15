@@ -586,7 +586,7 @@ export default function VenuesPage() {
                     fontSize: '12px',
                     fontWeight: 500,
                     border: '1px solid rgba(0,0,0,0.1)',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
                   }}
                   title={sticker.details || sticker.label}
                 >
@@ -611,7 +611,13 @@ export default function VenuesPage() {
                   key={image.id}
                   src={image.thumb_url || image.url}
                   alt="Artwork"
-                  style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #e5e7eb' }}
+                  style={{
+                    width: '100px',
+                    height: '100px',
+                    objectFit: 'cover',
+                    borderRadius: '4px',
+                    border: '1px solid #e5e7eb',
+                  }}
                 />
               ))}
             </div>
@@ -1033,7 +1039,18 @@ export default function VenuesPage() {
                       {venue.images && venue.images.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
                           {venue.images.map((image) => (
-                            <img key={image.id} src={image.thumb_url || image.url} alt="Artwork" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #e5e7eb' }} />
+                            <img
+                              key={image.id}
+                              src={image.thumb_url || image.url}
+                              alt="Artwork"
+                              style={{
+                                width: '50px',
+                                height: '50px',
+                                objectFit: 'cover',
+                                borderRadius: '4px',
+                                border: '1px solid #e5e7eb',
+                              }}
+                            />
                           ))}
                         </div>
                       )}
