@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin, getSessionFromRequest } from '/lib/rbac';
+import { requireAdmin, getSessionFromRequest } from '@/lib/rbac';
 import { getUserById } from '/lib/db';
 import { createClient } from '@supabase/supabase-js';
 
