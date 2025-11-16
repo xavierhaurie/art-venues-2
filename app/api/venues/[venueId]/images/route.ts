@@ -142,7 +142,7 @@ export async function POST(request: NextRequest, { params }: { params: { venueId
       const mt: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/svg+xml': 'svg' };
       mainExt = mt[mime] || 'bin';
     }
-    let mainBuffer = originalBuffer;
+    let mainBuffer: Buffer = originalBuffer;
     let finalMime = mime;
 
     if (mime !== 'image/svg+xml' && mime !== 'image/gif') {
