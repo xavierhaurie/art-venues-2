@@ -7,7 +7,7 @@ const nextConfig = {
         // Map `@` to `src` so `@/components/...` works in all environments
         config.resolve.alias = {
             ...(config.resolve.alias || {}),
-            "@": path.resolve(process.cwd(), ""),
+            "@": path.resolve(process.cwd(), "src"),
         };
         return config;
     },
