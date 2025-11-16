@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVenueFilters } from '@/lib/venues';
+import { getVenueFilters } from '/lib/venues';
 
 /**
  * GET /api/venues/filters

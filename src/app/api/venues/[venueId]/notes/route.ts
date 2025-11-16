@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireArtist } from '@/lib/rbac';
-import { getSession } from '@/lib/session';
+import { requireArtist } from '/lib/rbac';
+import { getSession } from '/lib/session';
 import { createClient } from '@supabase/supabase-js';
 
 // Force service role key to bypass RLS since custom session (not Supabase auth) is used

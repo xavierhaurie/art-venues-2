@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getVenueNotes, createNote, updateNote, deleteNote, Note } from '@/lib/notes';
+import { getVenueNotes, createNote, updateNote, deleteNote, Note } from '/lib/notes';
 
 interface VenueNotesProps {
   venueId: string;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserByEmail, createUser, createMagicLinkToken, logAuditEvent } from '@/lib/db';
-import { checkRateLimit, getEmailRateLimitKey } from '@/lib/rate-limit';
-import { sendMagicLinkEmail } from '@/lib/email';
+import { getUserByEmail, createUser, createMagicLinkToken, logAuditEvent } from '/lib/db';
+import { checkRateLimit, getEmailRateLimitKey } from '/lib/rate-limit';
+import { sendMagicLinkEmail } from '/lib/email';
 
 /**
  * POST /api/auth/magic-link

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVenues, searchVenues, getVenueFilters } from '@/lib/venues';
-import { VenueListParams } from '@/types/venue';
-import { getSession } from '@/lib/session';
+import { getVenues, searchVenues, getVenueFilters } from '/lib/venues';
+import { VenueListParams } from '/types/venue';
+import { getSession } from '/lib/session';
 import { createClient } from '@supabase/supabase-js';
 
 /**

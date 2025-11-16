@@ -1,7 +1,7 @@
 // filepath: src/app/api/feedback/confirm/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { sendFeedbackNotification } from '@/lib/email';
+import { sendFeedbackNotification } from '/lib/email';
 import crypto from 'crypto';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
