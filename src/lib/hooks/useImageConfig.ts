@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useConfigStore, ImageConfig } from '/lib/store/configStore';
+import { useConfigStore, ImageConfig } from '@/lib/store/configStore';
 
 export function useImageConfig(): { config: ImageConfig | null; loading: boolean; error: string | null } {
   const { imageConfig, loading, error, fetchImageConfig } = useConfigStore();

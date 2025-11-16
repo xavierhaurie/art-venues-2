@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserById } from '/lib/db';
-import { verifySession } from '/lib/session';
+import { getUserById } from '@/lib/db';
+import { verifySession } from '@/lib/session';
 
 /**
  * GET /api/auth/me

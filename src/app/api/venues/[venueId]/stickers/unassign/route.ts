@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '/lib/session';
-import { supabase } from '/lib/db';
+import { getCurrentUserId } from '@/lib/session';
+import { supabase } from '@/lib/db';
 
 // POST /api/venues/[venueId]/stickers/unassign - Unassign sticker from venue
 export async function POST(

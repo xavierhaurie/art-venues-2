@@ -1,9 +1,9 @@
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requireArtist } from '/lib/rbac';
+import { requireArtist } from '@/lib/rbac';
 import { createClient } from '@supabase/supabase-js';
-import { getSession } from '/lib/session';
+import { getSession } from '@/lib/session';
 import sharp from 'sharp';
 
 const DEV_BYPASS_AUTH = process.env.NODE_ENV === 'development' && process.env.BYPASS_AUTH === 'true';

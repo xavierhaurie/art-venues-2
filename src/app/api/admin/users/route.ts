@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin, getSessionFromRequest } from '/lib/rbac';
-import { getUserById } from '/lib/db';
+import { requireAdmin, getSessionFromRequest } from '@/lib/rbac';
+import { getUserById } from '@/lib/db';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

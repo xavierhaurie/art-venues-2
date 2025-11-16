@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '/lib/session';
-import { supabase } from '/lib/db';
+import { getCurrentUserId } from '@/lib/session';
+import { supabase } from '@/lib/db';
 
 // POST /api/stickers/meanings/delete?id={meaningId}&force=true - Delete sticker meaning
 export async function POST(request: NextRequest) {

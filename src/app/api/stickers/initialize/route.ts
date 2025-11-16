@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUserId } from '/lib/session';
-import { supabase } from '/lib/db';
+import { getCurrentUserId } from '@/lib/session';
+import { supabase } from '@/lib/db';
 
 /**
  * POST /api/stickers/initialize

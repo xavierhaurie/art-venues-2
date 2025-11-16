@@ -1,5 +1,5 @@
 import './globals.css'
-import ConfigBootstrapClient from '/components/ConfigBootstrapClient';
+import ConfigBootstrapClient from '@/components/ConfigBootstrapClient';
 
 export const metadata = {
   title: 'Art Venues',

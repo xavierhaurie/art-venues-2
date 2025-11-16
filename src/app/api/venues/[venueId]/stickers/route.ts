@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '/lib/session';
-import { supabase } from '/lib/db';
+import { getCurrentUserId } from '@/lib/session';
+import { supabase } from '@/lib/db';
 
 // GET /api/venues/[venueId]/stickers - Get stickers assigned to a venue
 export async function GET(

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUserId } from '/lib/session';
-import { supabase } from '/lib/db';
+import { getCurrentUserId } from '@/lib/session';
+import { supabase } from '@/lib/db';
 
 // PUT /api/stickers/meanings/[id] - Rename sticker meaning (label only)
 export async function PUT(
