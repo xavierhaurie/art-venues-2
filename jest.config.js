@@ -5,7 +5,7 @@ module.exports = {
   roots: ['<rootDir>/tests'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@/(.*)$': '<rootDir>/$1',
   },
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
@@ -21,9 +21,9 @@ module.exports = {
     'node_modules/(?!(nanoid)/)',
   ],
   collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-    '!src/app/**/*.ts',
+    '**/*.ts',
+    '**/*.d.ts',
+    '/app/**/*.ts',
   ],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   extensionsToTreatAsEsm: [],
