@@ -1,39 +1,73 @@
-import React from 'react';
+'use client';
 
-export const metadata = {
-  title: 'Terms of Service - Art Venues',
-  description: 'Terms of Service for Art Venues application',
-};
+import React, { useEffect } from 'react';
 
 export default function TermsPage() {
+  useEffect(() => {
+    const scriptId = 'getterms-embed-js';
+    let script = document.getElementById(scriptId) as HTMLScriptElement;
+
+    if (!script) {
+      script = document.createElement('script');
+      script.id = scriptId;
+      script.src = 'https://gettermscdn.com/dist/js/embed.js';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '40px 20px' }}>
-
-      <div
-        className="getterms-document-embed"
-        data-getterms="5LWll"
-        data-getterms-document="terms-of-service"
-        data-getterms-lang="en-us"
-        data-getterms-mode="direct"
-        data-getterms-env="https://gettermscdn.com"
-      ></div>
-
-      <script
-        type="text/javascript"
-        dangerouslySetInnerHTML={{
-          __html: `
-            (function(d, s, id) { 
-              var js, ref = d.getElementsByTagName(s)[0]; 
-              if (d.getElementById(id)) return; 
-              js = d.createElement(s); 
-              js.id = id; 
-              js.src = "https://gettermscdn.com/dist/js/embed.js"; 
-              ref.parentNode.insertBefore(js, ref); 
-            })(document, "script", "getterms-embed-js");
-          `
-        }}
-      />
+        <h1>Terms of Service</h1>
+        <p>These Terms of Service govern your use of the website located at <a href="https://minilist.io">https://minilist.io</a> and any related services provided by Mountaintop Software Builders DBA Mini List.</p>
+        <p>By accessing <a href="https://minilist.io">https://minilist.io</a>, you agree to abide by these Terms of Service and to comply with all applicable laws and regulations. If you do not agree with these Terms of Service, you are prohibited from using or accessing this website or using any other services provided by Mountaintop Software Builders DBA Mini List.</p>
+        <p>We, Mountaintop Software Builders DBA Mini List, reserve the right to review and amend any of these Terms of Service at our sole discretion. Upon doing so, we will update this page. Any changes to these Terms of Service will take effect immediately from the date of publication.</p>
+        <p>These Terms of Service were last updated on November 19, 2025.</p>
+        
+        <h2>Limitations of Use</h2>
+        <p>By using this website, you warrant on behalf of yourself, your users, and other parties you represent that you will not:</p>
+        <ul>
+            <li>modify, copy, prepare derivative works of, decompile, or reverse engineer any materials and software contained on this website;</li>
+            <li>remove any copyright or other proprietary notations from any materials and software on this website;</li>
+            <li>transfer the materials to another person or "mirror" the materials on any other server;</li>
+            <li>knowingly or negligently use this website or any of its associated services in a way that abuses or disrupts our networks or any other service Mountaintop Software Builders DBA Mini List provides;</li>
+            <li>use this website or its associated services to transmit or publish any harassing, indecent, obscene, fraudulent, or unlawful material;</li>
+            <li>use this website or its associated services in violation of any applicable laws or regulations;</li>
+            <li>use this website in conjunction with sending unauthorized advertising or spam;</li>
+            <li>harvest, collect, or gather user data without the user's consent; or</li>
+            <li>use this website or its associated services in such a way that may infringe the privacy, intellectual property rights, or other rights of third parties.</li>
+        </ul>
+        
+        <h2>Intellectual Property</h2>
+        <p>The intellectual property in the materials contained in this website are owned by or licensed to Mountaintop Software Builders DBA Mini List and are protected by applicable copyright and trademark law. We grant our users permission to download one copy of the materials for personal, non-commercial transitory use.</p>
+        <p>This constitutes the grant of a license, not a transfer of title. This license shall automatically terminate if you violate any of these restrictions or the Terms of Service, and may be terminated by Mountaintop Software Builders DBA Mini List at any time.</p>
+        
+        
+        <h2>Liability</h2>
+        <p>Our website and the materials on our website are provided on an 'as is' basis. To the extent permitted by law, Mountaintop Software Builders DBA Mini List makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property, or other violation of rights.</p>
+        <p>In no event shall Mountaintop Software Builders DBA Mini List or its suppliers be liable for any consequential loss suffered or incurred by you or any third party arising from the use or inability to use this website or the materials on this website, even if Mountaintop Software Builders DBA Mini List or an authorized representative has been notified, orally or in writing, of the possibility of such damage.</p>
+        <p>In the context of this agreement, "consequential loss" includes any consequential loss, indirect loss, real or anticipated loss of profit, loss of benefit, loss of revenue, loss of business, loss of goodwill, loss of opportunity, loss of savings, loss of reputation, loss of use and/or loss or corruption of data, whether under statute, contract, equity, tort (including negligence), indemnity or otherwise.</p>
+        <p>Because some jurisdictions do not allow limitations on implied warranties, or limitations of liability for consequential or incidental damages, these limitations may not apply to you.</p>
+        
+        <h2>Accuracy of Materials</h2>
+        <p>The materials appearing on our website are not comprehensive and are for general information purposes only. Mountaintop Software Builders DBA Mini List does not warrant or make any representations concerning the accuracy, likely results, or reliability of the use of the materials on this website, or otherwise relating to such materials or on any resources linked to this website.</p>
+        
+        <h2>Links</h2>
+        <p>Mountaintop Software Builders DBA Mini List has not reviewed all of the sites linked to its website and is not responsible for the contents of any such linked site. The inclusion of any link does not imply endorsement, approval or control by Mountaintop Software Builders DBA Mini List of the site. Use of any such linked site is at your own risk and we strongly advise you make your own investigations with respect to the suitability of those sites.</p>
+        
+        <h2>Right to Terminate</h2>
+        <p>We may suspend or terminate your right to use our website and terminate these Terms of Service immediately upon written notice to you for any breach of these Terms of Service.</p>
+        
+        <h2>Severance</h2>
+        <p>Any term of these Terms of Service which is wholly or partially void or unenforceable is severed to the extent that it is void or unenforceable. The validity of the remainder of these Terms of Service is not affected.</p>
+        
+        <h2>Governing Law</h2>
+        <p>These Terms of Service are governed by and construed in accordance with the laws of Massachusetts, United States. You irrevocably submit to the exclusive jurisdiction of the courts in that State or location.</p>
+        
+        
+        Your generated policy has been copied to the
     </div>
   );
 }
+
 

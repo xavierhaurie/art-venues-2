@@ -38,7 +38,7 @@ export default function Footer() {
 
         <span style={{ color: '#E5E7EB' }}>•</span>
 
-        <Link
+        <a
           href="/terms"
           style={{
             color: '#6B7280',
@@ -48,11 +48,11 @@ export default function Footer() {
           className="footer-link"
         >
           Terms of Service
-        </Link>
+        </a>
 
         <span style={{ color: '#E5E7EB' }}>•</span>
 
-        <Link
+        <a
           href="/privacy"
           style={{
             color: '#6B7280',
@@ -62,11 +62,11 @@ export default function Footer() {
           className="footer-link"
         >
           Privacy Policy
-        </Link>
+        </a>
 
         <span style={{ color: '#E5E7EB' }}>•</span>
 
-        <Link
+        <a
           href="/cookies"
           style={{
             color: '#6B7280',
@@ -76,11 +76,11 @@ export default function Footer() {
           className="footer-link"
         >
           Cookies
-        </Link>
+        </a>
 
         <span style={{ color: '#E5E7EB' }}>•</span>
 
-        <Link
+        <a
           href="/acceptable-use"
           style={{
             color: '#6B7280',
@@ -90,7 +90,7 @@ export default function Footer() {
           className="footer-link"
         >
           Acceptable Use
-        </Link>
+        </a>
 
         <span style={{ color: '#E5E7EB' }}>•</span>
 
