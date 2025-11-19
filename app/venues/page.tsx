@@ -68,7 +68,6 @@ export default function VenuesPage() {
   const [activeTooltipVenueId, setActiveTooltipVenueId] = useState<string | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const mainScrollRef = useRef<HTMLDivElement | null>(null);
-  const observerTarget = useRef<HTMLDivElement | null>(null);
   const loadingMore = useRef(false);
 
   // preload global image config early for modals/tooltips
@@ -307,29 +306,13 @@ export default function VenuesPage() {
     }
   }, [selectedVenueId, venues]);
 
-  // Infinite scroll observer
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore.current) {
-          loadingMore.current = true;
-          fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, true, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    const currentTarget = observerTarget.current;
-    if (currentTarget) {
-      observer.observe(currentTarget);
+  // Load more handler for button click
+  const handleLoadMore = () => {
+    if (hasMore && !loading && !loadingMore.current) {
+      loadingMore.current = true;
+      fetchVenues(currentPage + 1, searchQuery, filters, selectedStickerFilters, selectedLocalities, selectedVenueTypes, true, transitKnown, imagesPresent, notesPresent, showPublic, showMine);
     }
-
-    return () => {
-      if (currentTarget) {
-        observer.unobserve(currentTarget);
-      }
-    };
-  }, [hasMore, loading, currentPage, searchQuery, filters]);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1090,14 +1073,46 @@ export default function VenuesPage() {
            </div>
         </div>
 
-        <div ref={observerTarget} className="h-10 flex items-center justify-center mt-4">
-          {loadingMore.current && hasMore && (
-            <div className="text-gray-500 text-sm flex items-center gap-2">
-              <span aria-label="Loading more" style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid #6b7280', borderTopColor: 'transparent', borderRadius: '50%', animation: 'nw5spin 0.9s linear infinite', verticalAlign: 'middle' }} />
-              Loading more venues...
-            </div>
+        <div className="flex items-center justify-center mt-4" style={{ marginTop: '20px' }}>
+          {hasMore && venues.length > 0 && (
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore.current}
+              style={{
+                padding: '12px 24px',
+                background: loadingMore.current ? '#f3f4f6' : 'white',
+                color: loadingMore.current ? '#9ca3af' : '#374151',
+                border: '1px solid #d1d5db',
+                borderRadius: 6,
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                cursor: loadingMore.current ? 'not-allowed' : 'pointer',
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                if (!loadingMore.current) {
+                  e.currentTarget.style.background = '#f3f4f6';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!loadingMore.current) {
+                  e.currentTarget.style.background = 'white';
+                }
+              }}
+            >
+              {loadingMore.current ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid #9ca3af', borderTopColor: 'transparent', borderRadius: '50%', animation: 'nw5spin 0.9s linear infinite' }} />
+                  Loading...
+                </span>
+              ) : (
+                'Load 10 more'
+              )}
+            </button>
           )}
-          {!hasMore && venues.length > 0 && <div className="text-gray-400 text-sm">No more venues to load</div>}
+          {!hasMore && venues.length > 0 && (
+            <div className="text-gray-400 text-sm">No more venues to load</div>
+          )}
         </div>
       </div>
 
