@@ -1,6 +1,7 @@
 import './globals.css'
 import ConfigBootstrapClient from '@/components/ConfigBootstrapClient';
 import Footer from '@/components/Footer';
+import HeaderBar from '@/components/HeaderBar';
 
 export const metadata = {
   title: 'Art Venues',
@@ -16,6 +17,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <ConfigBootstrapClient>
+          <HeaderBar />
           {children}
           <Footer />
         </ConfigBootstrapClient>

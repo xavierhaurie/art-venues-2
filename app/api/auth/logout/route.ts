@@ -1,53 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { revokeSession, logAuditEvent } from '@/lib/db';
-import { verifySession } from '@/lib/session';
+// app/api/auth/logout/route.ts
+import { NextResponse } from 'next/server';
+import { supabaseServer, DEV_MODE } from '@/lib/supabaseServer';
 
-/**
- * POST /api/auth/logout
- * Logout user and revoke session
- */
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    // Verify session
-    const session = await verifySession(request);
-
-    if (session) {
-      // Revoke session in database
-      await revokeSession(session.jti);
-
-      // Log logout
-      await logAuditEvent(
-        'auth.logout',
-        'session',
-        session.jti,
-        {},
-        session.userId,
-        request.ip,
-        request.headers.get('user-agent') || undefined
-      );
+    // Dev mode: just return success
+    if (DEV_MODE) {
+      console.log('[DEV MODE] Logout bypass');
+      return NextResponse.json({ success: true, dev_mode: true }, { status: 200 });
     }
 
-    // Clear session cookie
-    const response = NextResponse.json(
-      { message: 'Logged out successfully' },
-      { status: 200 }
-    );
+    // Real Supabase signout
+    if (supabaseServer) {
+      await supabaseServer.auth.signOut();
+    }
 
-    response.cookies.set('session', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 0,
-      path: '/',
-    });
-
-    return response;
-
-  } catch (error) {
-    console.error('Logout error:', error);
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (err) {
+    console.error('Logout error:', err);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
+

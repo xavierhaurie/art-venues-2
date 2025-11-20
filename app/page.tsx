@@ -103,33 +103,7 @@ export default function HomePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
-      {/* Sign Out Link - Top Right (only when signed in) */}
-      {isSignedIn && (
-        <div style={{
-          position: 'absolute',
-          top: '20px',
-          right: '20px',
-          zIndex: 100
-        }}>
-          <button
-            onClick={handleSignOut}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#6B7280',
-              fontSize: '14px',
-              cursor: 'pointer',
-              textDecoration: 'underline',
-              padding: '8px 12px',
-              transition: 'color 0.2s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#111827'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#6B7280'}
-          >
-            Sign out
-          </button>
-        </div>
-      )}
+      {/* HeaderBar now comes from RootLayout */}
 
       {/* Hero Section with Centered Logo */}
       <section style={{
@@ -846,4 +820,3 @@ export default function HomePage() {
     </div>
   );
 }
-

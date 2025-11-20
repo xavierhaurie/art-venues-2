@@ -6,14 +6,6 @@ export default function TermsPage() {
   useEffect(() => {
     const scriptId = 'getterms-embed-js';
     let script = document.getElementById(scriptId) as HTMLScriptElement;
-
-    if (!script) {
-      script = document.createElement('script');
-      script.id = scriptId;
-      script.src = 'https://gettermscdn.com/dist/js/embed.js';
-      script.async = true;
-      document.head.appendChild(script);
-    }
   }, []);
 
   return (
