@@ -28,21 +28,29 @@ export async function POST(request: Request) {
 
     // Real Supabase auth
     if (!supabaseServer) {
+      console.error('[AUTH] Supabase client not initialized');
       return NextResponse.json(
         { error: 'Authentication not configured' },
         { status: 500 }
       );
     }
 
+    console.log('[AUTH] Attempting Supabase sign-in for:', email);
     const { data, error } = await supabaseServer.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
+      console.error('[AUTH] Supabase sign-in error:', {
+        message: error.message,
+        status: error.status,
+        name: error.name,
+      });
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
+    console.log('[AUTH] Sign-in successful for:', email);
     return NextResponse.json(
       {
         user: data.user,
