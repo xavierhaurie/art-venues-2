@@ -114,16 +114,14 @@ export default function VenuesPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch('/api/auth/me');
+        const response = await fetch('/api/auth/me', { credentials: 'include' });
         if (response.ok) {
           setIsAuthenticated(true);
         } else {
-          console.log('[VENUES] User not authenticated, redirecting to home with auth modal...');
           setIsAuthenticated(false);
           router.push('/?redirect=auth');
         }
       } catch (err) {
-        console.error('[VENUES] Auth check failed:', err);
         setIsAuthenticated(false);
         router.push('/?redirect=auth');
       }

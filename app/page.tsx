@@ -34,7 +34,7 @@ export default function HomePage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch('/api/auth/me');
+        const response = await fetch('/api/auth/me', { credentials: 'include' });
         setIsSignedIn(response.ok);
       } catch (err) {
         setIsSignedIn(false);
@@ -67,53 +67,31 @@ export default function HomePage() {
 
     try {
       if (authMode === 'signin') {
-        // Sign in
-        console.log('[SIGNIN] Attempting sign-in for:', email);
         const response = await fetch('/api/auth/signin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
           credentials: 'include',
         });
-
-        console.log('[SIGNIN] Response status:', response.status);
-
         if (response.ok) {
-          const data = await response.json();
-          console.log('[SIGNIN] Sign-in successful, data:', data);
-
-          // Update auth state immediately
           setIsAuthenticated(true);
-
           router.push('/venues');
         } else {
           const data = await response.json();
-          console.error('[SIGNIN] Sign-in failed:', data);
           setError(data.error || 'Sign in failed');
         }
       } else {
-        // Sign up
-        console.log('[SIGNUP] Attempting sign-up for:', email);
         const response = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
           credentials: 'include',
         });
-
-        console.log('[SIGNUP] Response status:', response.status);
-
         if (response.ok) {
-          const data = await response.json();
-          console.log('[SIGNUP] Sign-up successful, data:', data);
-
-          // Update auth state immediately
           setIsAuthenticated(true);
-
           router.push('/venues');
         } else {
           const data = await response.json();
-          console.error('[SIGNUP] Sign-up failed:', data);
           setError(data.error || 'Sign up failed');
         }
       }
@@ -884,4 +862,3 @@ export default function HomePage() {
     </div>
   );
 }
-

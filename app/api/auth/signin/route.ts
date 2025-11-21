@@ -17,7 +17,6 @@ export async function POST(request: Request) {
     if (DEV_MODE) {
       console.log('[SIGNIN/SERVER] Dev mode sign-in for:', email);
 
-      // Create a response with session cookie (so logout can clear it)
       const response = NextResponse.json(
         {
           user: { id: 'dev-user-id', email },
@@ -27,16 +26,13 @@ export async function POST(request: Request) {
         { status: 200 }
       );
 
-      // Set dev mode session cookie
-      const expiresAt = new Date(Date.now() + 86400000); // 24 hours
+      const expiresAt = new Date(Date.now() + 86400000);
       const cookieValue = JSON.stringify({
         access_token: 'dev-token',
         refresh_token: 'dev-refresh',
         expires_at: expiresAt.toISOString(),
         user: { id: 'dev-user-id', email },
       });
-
-      console.log('[SIGNIN/SERVER] Setting cookie with value:', cookieValue.substring(0, 100) + '...');
 
       response.cookies.set('supabase-session', cookieValue, {
         httpOnly: true,
@@ -46,8 +42,7 @@ export async function POST(request: Request) {
         path: '/',
       });
 
-      console.log('[SIGNIN/SERVER] Cookie set successfully');
-
+      console.log('[SIGNIN/SERVER] Cookie set via cookies API');
       return response;
     }
 
@@ -72,7 +67,14 @@ export async function POST(request: Request) {
         status: error.status,
         name: error.name,
       });
-      return NextResponse.json({ error: error.message }, { status: 401 });
+
+      // Provide more helpful error messages
+      let userMessage = error.message;
+      if (error.message.includes('Email not confirmed')) {
+        userMessage = 'Please confirm your email address. Check your inbox for a confirmation link.';
+      }
+
+      return NextResponse.json({ error: userMessage }, { status: 401 });
     }
 
     console.log('[AUTH] Sign-in successful for:', email);
@@ -88,31 +90,35 @@ export async function POST(request: Request) {
       { status: 200 }
     );
 
-    // Set session cookie if we have a session
     if (data.session) {
-      const expiresAt = new Date(data.session.expires_at || Date.now() + 86400000);
-      response.cookies.set('supabase-session', JSON.stringify({
+      const expiresAt = new Date(
+        (typeof data.session.expires_at === 'number'
+          ? data.session.expires_at * 1000
+          : data.session.expires_at) || Date.now() + 86400000
+      );
+      const cookieData = {
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
-        expires_at: data.session.expires_at,
+        expires_at: expiresAt.toISOString(),
         user: data.user,
-      }), {
+      };
+
+      response.cookies.set('supabase-session', JSON.stringify(cookieData), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         expires: expiresAt,
         path: '/',
       });
-      console.log('[AUTH] Session cookie set, expires:', expiresAt);
+      console.log('[AUTH] Session cookie set via cookies API');
     }
 
     return response;
   } catch (err) {
-    console.error('Sign-in error:', err);
+    console.error('[AUTH] Unexpected error:', err);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'An unexpected error occurred' },
       { status: 500 }
     );
   }
 }
-

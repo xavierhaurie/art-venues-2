@@ -41,11 +41,27 @@ export async function GET(request: Request) {
 
     // Production mode: validate session cookie
     try {
+      console.log('[AUTH/ME] Parsing session cookie...');
       const session = JSON.parse(sessionCookie.value);
+      console.log('[AUTH/ME] Session parsed successfully:', {
+        has_access_token: !!session.access_token,
+        has_user: !!session.user,
+        expires_at: session.expires_at,
+        expires_at_type: typeof session.expires_at,
+        user_email: session.user?.email
+      });
 
       // Check if session is expired
       const expiresAt = new Date(session.expires_at);
-      if (expiresAt < new Date()) {
+      const now = new Date();
+      console.log('[AUTH/ME] Checking expiration:', {
+        expires_at: expiresAt.toISOString(),
+        now: now.toISOString(),
+        is_expired: expiresAt < now,
+        time_diff_seconds: Math.floor((expiresAt.getTime() - now.getTime()) / 1000)
+      });
+
+      if (expiresAt.getTime() < now.getTime()) {
         console.log('[AUTH/ME] Session expired');
         return NextResponse.json(
           { authenticated: false, reason: 'session_expired' },
@@ -62,7 +78,8 @@ export async function GET(request: Request) {
         { status: 200 }
       );
     } catch (parseError) {
-      console.error('[AUTH/ME] Invalid session cookie:', parseError);
+      console.error('[AUTH/ME] Invalid session cookie - parse error:', parseError);
+      console.error('[AUTH/ME] Cookie value that failed to parse:', sessionCookie.value.substring(0, 200));
       return NextResponse.json(
         { authenticated: false, reason: 'invalid_session' },
         { status: 401 }
@@ -76,4 +93,3 @@ export async function GET(request: Request) {
     );
   }
 }
-

@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         expires: expiresAt,
         path: '/',
       });
-      console.log('[DEV MODE] Session cookie set');
+      console.log('[DEV MODE] Session cookie set via cookies API');
 
       return response;
     }
@@ -181,4 +181,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
