@@ -16,17 +16,79 @@ export default function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [authMessage, setAuthMessage] = useState('');
+  const [signinInlineMessage, setSigninInlineMessage] = useState('');
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [showSignupInstructionOnly, setShowSignupInstructionOnly] = useState(false);
+  const [awaitingEmailConfirmation, setAwaitingEmailConfirmation] = useState(false);
+  const [justConfirmedSignup, setJustConfirmedSignup] = useState(false);
 
-  // Check for redirect parameter (from protected route)
+  // Check for redirect parameter (from protected route) OR Supabase hash
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('redirect') === 'auth') {
+    // 1) Existing query-param based handling
+    const search = typeof window !== 'undefined' ? window.location.search : '';
+    const params = new URLSearchParams(search);
+    const redirect = (params.get('redirect') || '').toLowerCase().trim();
+
+    if (redirect === 'auth') {
+      // User tried to access a protected page while unauthenticated
       setAuthMessage('You must sign in before you can access this page');
+      setSigninInlineMessage('');
+      setAwaitingEmailConfirmation(false);
+      setJustConfirmedSignup(false);
+      setShowSignupInstructionOnly(false);
       setShowAuthModal(true);
       setAuthMode('signin');
-      // Clean up URL
       window.history.replaceState({}, '', '/');
+      return;
+    }
+
+    if (redirect === 'email_confirmation') {
+      // User just signed up; we want the signup instruction-only state
+      setAwaitingEmailConfirmation(true);
+      setJustConfirmedSignup(false);
+      setShowSignupInstructionOnly(true);
+      setShowAuthModal(true);
+      setAuthMode('signup');
+      setAuthMessage('In order to create your account, please follow the instructions we sent to your email.');
+      setSigninInlineMessage('');
+      window.history.replaceState({}, '', '/');
+      return;
+    }
+
+    if (redirect === 'confirmed') {
+      // Our own confirmed flag (kept for completeness, but Supabase is currently using hash)
+      setAwaitingEmailConfirmation(false);
+      setJustConfirmedSignup(true);
+      setShowSignupInstructionOnly(false);
+      setShowAuthModal(true);
+      setAuthMode('signin');
+      setAuthMessage('');
+      setSigninInlineMessage('Your account was created. Please sign-in below:');
+      window.history.replaceState({}, '', '/');
+      return;
+    }
+
+    // 2) Supabase hash-based flow: http://localhost:3000/#access_token=...&type=signup
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const rawHash = window.location.hash; // e.g. '#access_token=...&type=signup'
+      // Strip leading '#' and parse as query string
+      const hashString = rawHash.startsWith('#') ? rawHash.substring(1) : rawHash;
+      const hashParams = new URLSearchParams(hashString);
+      const typeParam = (hashParams.get('type') || '').toLowerCase().trim();
+
+      if (typeParam === 'signup') {
+        // Treat this as: "user has just confirmed their account via magic link"
+        setAwaitingEmailConfirmation(false);
+        setJustConfirmedSignup(true);
+        setShowSignupInstructionOnly(false);
+        setShowAuthModal(true);
+        setAuthMode('signin');
+        setAuthMessage('');
+        setSigninInlineMessage('Your account was created. Please sign-in below:');
+
+        // Clear the hash so reloads / navigation are clean
+        window.location.hash = '';
+      }
     }
   }, []);
 
@@ -88,14 +150,20 @@ export default function HomePage() {
           credentials: 'include',
         });
         if (response.ok) {
-          setIsAuthenticated(true);
-          router.push('/venues');
+          // Keep modal open, hide form elements, and show only the requested message.
+          setIsAuthenticated(false);
+          setShowAuthModal(true);
+          setAuthMode('signup');
+          setShowSignupInstructionOnly(true);
+          setAuthMessage('In order to create your account, please follow the instructions we sent to your email.');
+          setSigninInlineMessage('');
+          setAwaitingEmailConfirmation(true);
         } else {
           const data = await response.json();
           setError(data.error || 'Sign up failed');
         }
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -105,19 +173,33 @@ export default function HomePage() {
   const openAuthModal = () => {
     setShowAuthModal(true);
     setAuthMode('signin');
-    setAuthMessage(''); // Clear any previous message
+    setAuthMessage('');
+    setSigninInlineMessage('');
+    setError('');
+    setShowSignupInstructionOnly(false);
+    setAwaitingEmailConfirmation(false);
+    setJustConfirmedSignup(false);
   };
 
   const handleAuthModeChange = (newMode: 'signin' | 'signup') => {
     setAuthMode(newMode);
-    setAuthMessage(''); // Clear message when switching modes
-    setError(''); // Clear any errors too
+    setAuthMessage('');
+    setSigninInlineMessage('');
+    setError('');
+    setShowSignupInstructionOnly(false);
+    // If switching modes manually, we’re not in the magic-link or signup-complete flows anymore.
+    setAwaitingEmailConfirmation(false);
+    setJustConfirmedSignup(false);
   };
 
   const handleCloseAuthModal = () => {
     setShowAuthModal(false);
-    setAuthMessage(''); // Clear message when closing
-    setError(''); // Clear any errors too
+    setAuthMessage('');
+    setSigninInlineMessage('');
+    setError('');
+    setShowSignupInstructionOnly(false);
+    setAwaitingEmailConfirmation(false);
+    setJustConfirmedSignup(false);
   };
 
   const handleSignOut = async () => {
@@ -139,7 +221,7 @@ export default function HomePage() {
         textAlign: 'center'
       }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          {/* Centered Square Logo */}
+          {/* Centered Square Logo (always shown now; header logo unchanged) */}
           <div style={{
             display: 'flex',
             justifyContent: 'center',
@@ -654,27 +736,66 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Passive email-confirmation message when user has just signed up */}
+      {awaitingEmailConfirmation && (
+        <section
+          style={{
+            padding: '40px 20px',
+            background: '#F9FAFB',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: '640px',
+              margin: '0 auto',
+              borderRadius: 12,
+              border: '1px solid #E5E7EB',
+              padding: '24px 28px',
+              background: '#FFFFFF',
+            }}
+          >
+            <h2
+              style={{
+                fontSize: '1.25rem',
+                fontWeight: 600,
+                marginBottom: '8px',
+                color: '#111827',
+              }}
+            >
+              Check your email
+            </h2>
+            <p
+              style={{
+                fontSize: '0.95rem',
+                color: '#374151',
+                lineHeight: 1.6,
+              }}
+            >
+              Please follow the instructions in the message we sent to your email address.
+              Once you confirm your email, you&apos;ll be able to sign in and access your venues.
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* Auth Modal */}
       {showAuthModal && (
         <>
           <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000 }}
+            onClick={handleCloseAuthModal}
+          />
+          <div
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0,0,0,0.5)',
-              zIndex: 1000
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1001,
+              padding: '20px',
             }}
-            onClick={handleCloseAuthModal}
-          />
-          <div style={{
-            position: 'fixed',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1001,
-            padding: '20px'
-          }}>
+          >
             <div
               style={{
                 background: '#FFFFFF',
@@ -682,8 +803,9 @@ export default function HomePage() {
                 width: '100%',
                 maxWidth: 440,
                 padding: '40px',
-                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
-                position: 'relative'
+                boxShadow:
+                  '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+                position: 'relative',
               }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -701,160 +823,188 @@ export default function HomePage() {
                   cursor: 'pointer',
                   padding: '4px 8px',
                   lineHeight: 1,
-                  transition: 'color 0.2s'
+                  transition: 'color 0.2s',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.color = '#111827'}
-                onMouseLeave={(e) => e.currentTarget.style.color = '#9CA3AF'}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#111827')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = '#9CA3AF')}
                 aria-label="Close"
               >
                 ×
               </button>
 
-              <h2 style={{
-                fontSize: '1.875rem',
-                fontWeight: 700,
-                marginBottom: '8px',
-                color: '#111827'
-              }}>
+              <h2
+                style={{
+                  fontSize: '1.875rem',
+                  fontWeight: 700,
+                  marginBottom: '8px',
+                  color: '#111827',
+                }}
+              >
                 {authMode === 'signin' ? 'Sign in' : 'Create account'}
               </h2>
 
               {authMessage && (
-                <div style={{
-                  padding: '12px 16px',
-                  background: '#FEF3C7',
-                  color: '#92400E',
-                  borderRadius: 6,
-                  fontSize: '0.875rem',
-                  marginBottom: '16px',
-                  border: '1px solid #FCD34D'
-                }}>
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    background: '#FEF3C7',
+                    color: '#92400E',
+                    borderRadius: 6,
+                    fontSize: '0.875rem',
+                    marginBottom: '16px',
+                    border: '1px solid #FCD34D',
+                  }}
+                >
                   {authMessage}
                 </div>
               )}
 
-              <p style={{
-                fontSize: '0.875rem',
-                color: '#6B7280',
-                marginBottom: '32px'
-              }}>
-                {authMode === 'signin'
-                  ? 'Welcome back! Enter your credentials to continue.'
-                  : 'Get started with your free account.'}
-              </p>
+              {/* Only hide the form in the "signup message only" state; still show inline message and form after magic link */}
+              {!showSignupInstructionOnly && (
+                <>
+                  {/* Inline message for magic-link completion, above the form */}
+                  {signinInlineMessage && authMode === 'signin' && (
+                    <div
+                      style={{
+                        padding: '10px 12px',
+                        background: '#ECFDF5',
+                        color: '#065F46',
+                        borderRadius: 6,
+                        fontSize: '0.85rem',
+                        marginBottom: '16px',
+                        border: '1px solid #A7F3D0',
+                      }}
+                    >
+                      {signinInlineMessage}
+                    </div>
+                  )}
 
-              <form onSubmit={handleAuthSubmit}>
-                <div style={{ marginBottom: '20px' }}>
-                  <label
-                    htmlFor="email"
+                  <p
                     style={{
-                      display: 'block',
                       fontSize: '0.875rem',
-                      fontWeight: 500,
-                      marginBottom: '8px',
-                      color: '#111827'
-                    }}
-                  >
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      border: '1px solid #E5E7EB',
-                      borderRadius: 6,
-                      fontSize: '1rem'
-                    }}
-                  />
-                </div>
-
-                <div style={{ marginBottom: '24px' }}>
-                  <label
-                    htmlFor="password"
-                    style={{
-                      display: 'block',
-                      fontSize: '0.875rem',
-                      fontWeight: 500,
-                      marginBottom: '8px',
-                      color: '#111827'
-                    }}
-                  >
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    id="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      border: '1px solid #E5E7EB',
-                      borderRadius: 6,
-                      fontSize: '1rem'
-                    }}
-                  />
-                </div>
-
-                {error && (
-                  <div style={{
-                    padding: '12px',
-                    background: '#FEE2E2',
-                    color: '#991B1B',
-                    borderRadius: 6,
-                    fontSize: '0.875rem',
-                    marginBottom: '20px'
-                  }}>
-                    {error}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    background: isSubmitting ? '#9CA3AF' : '#111827',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: 6,
-                    fontSize: '1rem',
-                    fontWeight: 600,
-                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                    marginBottom: '16px'
-                  }}
-                >
-                  {isSubmitting
-                    ? 'Please wait...'
-                    : authMode === 'signin' ? 'Sign in' : 'Create account'}
-                </button>
-
-                <div style={{ textAlign: 'center' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleAuthModeChange(authMode === 'signin' ? 'signup' : 'signin')}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#111827',
-                      fontSize: '0.875rem',
-                      textDecoration: 'underline',
-                      cursor: 'pointer'
+                      color: '#6B7280',
+                      marginBottom: '32px',
                     }}
                   >
                     {authMode === 'signin'
-                      ? 'Need an account? Sign up'
-                      : 'Already have an account? Sign in'}
-                  </button>
-                </div>
-              </form>
+                      ? 'Welcome back! Enter your credentials to continue.'
+                      : 'Get started with your free account.'}
+                  </p>
+
+                  <form onSubmit={handleAuthSubmit}>
+                    <div style={{ marginBottom: '20px' }}>
+                      <label
+                        htmlFor="email"
+                        style={{
+                          display: 'block',
+                          fontSize: '0.875rem',
+                          fontWeight: 500,
+                          marginBottom: '8px',
+                          color: '#111827',
+                        }}
+                      >
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '1px solid #E5E7EB',
+                          borderRadius: 6,
+                          fontSize: '1rem',
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '24px' }}>
+                      <label
+                        htmlFor="password"
+                        style={{
+                          display: 'block',
+                          fontSize: '0.875rem',
+                          fontWeight: 500,
+                          marginBottom: '8px',
+                          color: '#111827',
+                        }}
+                      >
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          border: '1px solid #E5E7EB',
+                          borderRadius: 6,
+                          fontSize: '1rem',
+                        }}
+                      />
+                    </div>
+
+                    {error && (
+                      <div style={{
+                        padding: '12px',
+                        background: '#FEE2E2',
+                        color: '#991B1B',
+                        borderRadius: 6,
+                        fontSize: '0.875rem',
+                        marginBottom: '20px',
+                      }}>
+                        {error}
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      style={{
+                        width: '100%',
+                        padding: '14px',
+                        background: isSubmitting ? '#9CA3AF' : '#111827',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: 6,
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                        marginBottom: '16px',
+                      }}
+                    >
+                      {isSubmitting
+                        ? 'Please wait...'
+                        : authMode === 'signin' ? 'Sign in' : 'Create account'}
+                    </button>
+
+                    <div style={{ textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleAuthModeChange(authMode === 'signin' ? 'signup' : 'signin')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#111827',
+                          fontSize: '0.875rem',
+                          textDecoration: 'underline',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {authMode === 'signin'
+                          ? 'Need an account? Sign up'
+                          : 'Already have an account? Sign in'}
+                      </button>
+                    </div>
+                  </form>
+                </>
+              )}
             </div>
           </div>
         </>

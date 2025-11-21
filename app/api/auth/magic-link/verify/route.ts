@@ -78,18 +78,14 @@ export async function GET(request: NextRequest) {
       request.headers.get('user-agent') || undefined
     );
 
-    const response = NextResponse.json({
-      requiresTOTPSetup,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        totp_enabled: user.totp_enabled,
-      },
-    });
+    // Build redirect URL back to the app with the magic-link completion flag
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const redirectUrl = new URL('/?redirect=confirmed', appUrl);
 
-    // Set session cookie
+    // Create a redirect response
+    const response = NextResponse.redirect(redirectUrl);
+
+    // Set session cookie so the browser is logged in
     response.cookies.set('session', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
