@@ -1,11 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function HomePage() {
   const router = useRouter();
+  const { setIsAuthenticated } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -15,7 +18,7 @@ export default function HomePage() {
   const [isSignedIn, setIsSignedIn] = useState(false);
 
   // Check if user is signed in
-  React.useEffect(() => {
+  useEffect(() => {
     const checkAuth = async () => {
       try {
         const response = await fetch('/api/auth/me');
@@ -28,7 +31,7 @@ export default function HomePage() {
   }, []);
 
   // Handle ESC key to close modal
-  React.useEffect(() => {
+  useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && showAuthModal) {
         setShowAuthModal(false);
@@ -51,31 +54,53 @@ export default function HomePage() {
 
     try {
       if (authMode === 'signin') {
-        // Sign in logic - connect to your auth backend
+        // Sign in
+        console.log('[SIGNIN] Attempting sign-in for:', email);
         const response = await fetch('/api/auth/signin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ email, password }),
+          credentials: 'include',
         });
 
+        console.log('[SIGNIN] Response status:', response.status);
+
         if (response.ok) {
+          const data = await response.json();
+          console.log('[SIGNIN] Sign-in successful, data:', data);
+
+          // Update auth state immediately
+          setIsAuthenticated(true);
+
           router.push('/venues');
         } else {
           const data = await response.json();
+          console.error('[SIGNIN] Sign-in failed:', data);
           setError(data.error || 'Sign in failed');
         }
       } else {
-        // Sign up logic
+        // Sign up
+        console.log('[SIGNUP] Attempting sign-up for:', email);
         const response = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ email, password }),
+          credentials: 'include',
         });
 
+        console.log('[SIGNUP] Response status:', response.status);
+
         if (response.ok) {
+          const data = await response.json();
+          console.log('[SIGNUP] Sign-up successful, data:', data);
+
+          // Update auth state immediately
+          setIsAuthenticated(true);
+
           router.push('/venues');
         } else {
           const data = await response.json();
+          console.error('[SIGNUP] Sign-up failed:', data);
           setError(data.error || 'Sign up failed');
         }
       }
@@ -93,18 +118,16 @@ export default function HomePage() {
 
   const handleSignOut = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.reload();
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      setIsAuthenticated(false);
+      window.location.href = '/';
     } catch (err) {
       console.error('Sign out error:', err);
-      window.location.reload();
     }
   };
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
-      {/* HeaderBar now comes from RootLayout */}
-
       {/* Hero Section with Centered Logo */}
       <section style={{
         background: '#FFFFFF',
@@ -820,3 +843,4 @@ export default function HomePage() {
     </div>
   );
 }
+

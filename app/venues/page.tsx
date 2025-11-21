@@ -60,7 +60,9 @@ interface UserVenueData {
 
 export default function VenuesPage() {
   const router = useRouter();
-  // Tooltip & hover state (re-added after duplicate cleanup)
+
+  // ========== ALL HOOKS DECLARED FIRST (Rules of Hooks) ==========
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [hoveredCell, setHoveredCell] = useState<{content: React.ReactNode; x: number; y: number; venueId: string} | null>(null);
   const [clickedCell, setClickedCell] = useState<{content: React.ReactNode; x: number; y: number; venueId: string} | null>(null);
   const [isOverTooltip, setIsOverTooltip] = useState(false);
@@ -69,8 +71,6 @@ export default function VenuesPage() {
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const mainScrollRef = useRef<HTMLDivElement | null>(null);
   const loadingMore = useRef(false);
-
-  // preload global image config early for modals/tooltips
   const { fetchImageConfig } = useConfigStore();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,10 +87,8 @@ export default function VenuesPage() {
   const [imagesPresent, setImagesPresent] = useState(false);
   const [notesPresent, setNotesPresent] = useState(false);
   const [showOtherFilters, setShowOtherFilters] = useState(false);
-  // Ownership filter toggles (default both true)
   const [showPublic, setShowPublic] = useState(true);
   const [showMine, setShowMine] = useState(true);
-  // Credits total
   const [credits, setCredits] = useState<number | null>(null);
   const [meRole, setMeRole] = useState<string | null>(null);
   const [showCreateVenueModal, setShowCreateVenueModal] = useState(false);
@@ -98,29 +96,42 @@ export default function VenuesPage() {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackSuccess, setFeedbackSuccess] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
   const [feedbackRateLimited, setFeedbackRateLimited] = useState<{ limited: boolean; msg: string }>({ limited: false, msg: '' });
-
-  // Locality picker state
   const [localities, setLocalities] = useState<Array<{id: string, name: string}>>([]);
-
-  // Venue type picker state
+  const [selectedLocalities, setSelectedLocalities] = useState<string[]>([]);
+  const [showLocalityPicker, setShowLocalityPicker] = useState(false);
   const [venueTypes, setVenueTypes] = useState<Array<{id: string, name: string}>>([]);
   const [selectedVenueTypes, setSelectedVenueTypes] = useState<string[]>([]);
   const [showVenueTypePicker, setShowVenueTypePicker] = useState(false);
-
-  const [selectedLocalities, setSelectedLocalities] = useState<string[]>([]);
-  const [showLocalityPicker, setShowLocalityPicker] = useState(false);
-
-  // Sticker filter state
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [stickerMeanings, setStickerMeanings] = useState<Array<{id: string, color: string, label: string, details: string | null}>>([]);
-  const [selectedStickerFilters, setSelectedStickerFilters] = useState<string[]>([]); // Array of sticker_meaning_id
-
-  // per-venue refresh signals: increment a venue's counter to tell its row to refresh
+  const [selectedStickerFilters, setSelectedStickerFilters] = useState<string[]>([]);
   const [stickerRefreshSignals, setStickerRefreshSignals] = useState<Record<string, number>>({});
-
   const [userVenueData, setUserVenueData] = useState<{[venueId: string]: UserVenueData}>({});
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
   const { selectedVenueId, openModal, closeModal } = useVenueStore();
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          setIsAuthenticated(true);
+        } else {
+          console.log('[VENUES] User not authenticated, redirecting to home...');
+          setIsAuthenticated(false);
+          router.push('/');
+        }
+      } catch (err) {
+        console.error('[VENUES] Auth check failed:', err);
+        setIsAuthenticated(false);
+        router.push('/');
+      }
+    };
+    checkAuth();
+  }, [router]);
+
+  // ========== Component logic and other hooks - NO EARLY RETURNS ==========
 
   const fetchVenues = async (
     page = 1,
@@ -748,6 +759,7 @@ export default function VenuesPage() {
   };
 
   if (loading && venues.length === 0) {
+    // Show initial loading spinner
     return (
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
@@ -759,6 +771,45 @@ export default function VenuesPage() {
     );
   }
 
+  // ========== AUTHENTICATION CHECKS - MUST BE AT THE END ==========
+  // Show loading while checking auth
+  if (isAuthenticated === null) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        background: '#FAFAFA'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            border: '4px solid #E5E7EB',
+            borderTop: '4px solid #111827',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px'
+          }} />
+          <p style={{ color: '#6B7280', fontSize: '14px' }}>Checking authentication...</p>
+        </div>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // Don't render page content if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  // ========== MAIN COMPONENT RENDER ==========
   return (
     <div className="container mx-auto px-4 py-8 font-sans" style={{ margin: '2rem', overflowX: 'hidden' }}>
       <style jsx global>{`@keyframes nw5spin{to{transform:rotate(360deg)}}`}</style>

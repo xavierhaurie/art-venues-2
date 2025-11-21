@@ -2,6 +2,7 @@ import './globals.css'
 import ConfigBootstrapClient from '@/components/ConfigBootstrapClient';
 import Footer from '@/components/Footer';
 import HeaderBar from '@/components/HeaderBar';
+import { AuthProvider } from '@/lib/AuthContext';
 
 export const metadata = {
   title: 'Art Venues',
@@ -16,11 +17,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ConfigBootstrapClient>
-          <HeaderBar />
-          {children}
-          <Footer />
-        </ConfigBootstrapClient>
+        <AuthProvider>
+          <ConfigBootstrapClient>
+            <HeaderBar />
+            {children}
+            <Footer />
+          </ConfigBootstrapClient>
+        </AuthProvider>
       </body>
     </html>
   )

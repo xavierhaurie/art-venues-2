@@ -1,30 +1,31 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Image from 'next/image';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function HeaderBar() {
-  const [isSignedIn, setIsSignedIn] = useState(false);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch('/api/auth/me');
-        setIsSignedIn(response.ok);
-      } catch (err) {
-        setIsSignedIn(false);
-      }
-    };
-    checkAuth();
-  }, []);
+  const { isAuthenticated, setIsAuthenticated } = useAuth();
 
   const handleSignOut = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.reload();
+      console.log('[HEADER] Signing out...');
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      console.log('[HEADER] Logout response:', response.status);
+
+      // Update auth state immediately
+      setIsAuthenticated(false);
+
+      // Redirect to home page after sign-out
+      window.location.href = '/';
     } catch (err) {
-      console.error('Sign out error:', err);
-      window.location.reload();
+      console.error('[HEADER] Sign out error:', err);
+      // Still update state and redirect
+      setIsAuthenticated(false);
+      window.location.href = '/';
     }
   };
 
@@ -57,7 +58,7 @@ export default function HeaderBar() {
         />
 
         {/* Sign-out link (only when signed in) */}
-        {isSignedIn && (
+        {isAuthenticated && (
           <button
             onClick={handleSignOut}
             style={{
@@ -70,7 +71,7 @@ export default function HeaderBar() {
               cursor: 'pointer',
               textDecoration: 'underline',
               padding: '4px 8px',
-              transition: 'color 0.2s'
+              transition: 'color 0.2s',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = '#FFFFFF';
@@ -86,3 +87,4 @@ export default function HeaderBar() {
     </header>
   );
 }
+
