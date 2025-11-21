@@ -47,7 +47,6 @@ export async function POST(request: Request) {
       });
 
       console.log('[SIGNIN/SERVER] Cookie set successfully');
-      console.log('[SIGNIN/SERVER] Response headers:', Object.fromEntries(response.headers.entries()));
 
       return response;
     }
