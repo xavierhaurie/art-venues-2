@@ -15,7 +15,20 @@ export default function HomePage() {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [authMessage, setAuthMessage] = useState('');
   const [isSignedIn, setIsSignedIn] = useState(false);
+
+  // Check for redirect parameter (from protected route)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('redirect') === 'auth') {
+      setAuthMessage('You must sign in before you can access this page');
+      setShowAuthModal(true);
+      setAuthMode('signin');
+      // Clean up URL
+      window.history.replaceState({}, '', '/');
+    }
+  }, []);
 
   // Check if user is signed in
   useEffect(() => {
@@ -34,7 +47,7 @@ export default function HomePage() {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && showAuthModal) {
-        setShowAuthModal(false);
+        handleCloseAuthModal();
       }
     };
 
@@ -114,6 +127,19 @@ export default function HomePage() {
   const openAuthModal = () => {
     setShowAuthModal(true);
     setAuthMode('signin');
+    setAuthMessage(''); // Clear any previous message
+  };
+
+  const handleAuthModeChange = (newMode: 'signin' | 'signup') => {
+    setAuthMode(newMode);
+    setAuthMessage(''); // Clear message when switching modes
+    setError(''); // Clear any errors too
+  };
+
+  const handleCloseAuthModal = () => {
+    setShowAuthModal(false);
+    setAuthMessage(''); // Clear message when closing
+    setError(''); // Clear any errors too
   };
 
   const handleSignOut = async () => {
@@ -660,7 +686,7 @@ export default function HomePage() {
               background: 'rgba(0,0,0,0.5)',
               zIndex: 1000
             }}
-            onClick={() => setShowAuthModal(false)}
+            onClick={handleCloseAuthModal}
           />
           <div style={{
             position: 'fixed',
@@ -685,7 +711,7 @@ export default function HomePage() {
             >
               {/* X Close Button */}
               <button
-                onClick={() => setShowAuthModal(false)}
+                onClick={handleCloseAuthModal}
                 style={{
                   position: 'absolute',
                   top: '16px',
@@ -714,6 +740,21 @@ export default function HomePage() {
               }}>
                 {authMode === 'signin' ? 'Sign in' : 'Create account'}
               </h2>
+
+              {authMessage && (
+                <div style={{
+                  padding: '12px 16px',
+                  background: '#FEF3C7',
+                  color: '#92400E',
+                  borderRadius: 6,
+                  fontSize: '0.875rem',
+                  marginBottom: '16px',
+                  border: '1px solid #FCD34D'
+                }}>
+                  {authMessage}
+                </div>
+              )}
+
               <p style={{
                 fontSize: '0.875rem',
                 color: '#6B7280',
@@ -820,7 +861,7 @@ export default function HomePage() {
                 <div style={{ textAlign: 'center' }}>
                   <button
                     type="button"
-                    onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}
+                    onClick={() => handleAuthModeChange(authMode === 'signin' ? 'signup' : 'signin')}
                     style={{
                       background: 'none',
                       border: 'none',
