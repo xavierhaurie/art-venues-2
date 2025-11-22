@@ -16,7 +16,7 @@ if (!STRIPE_DEV_MODE && !stripeSecretKey) {
 // Create Stripe client (only if not in dev mode and key exists)
 export const stripe = !STRIPE_DEV_MODE && stripeSecretKey
   ? new Stripe(stripeSecretKey, {
-      apiVersion: '2025-11-17.clover',
+      apiVersion: '2025-11-17.clover' as any,
     })
   : null;
 

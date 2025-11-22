@@ -129,6 +129,25 @@ export default function VenuesPage() {
     checkAuth();
   }, [router]);
 
+  // Check subscription status after authentication
+  useEffect(() => {
+    if (isAuthenticated === true) {
+      const checkSubscription = async () => {
+        try {
+          const response = await fetch('/api/user/subscription', { credentials: 'include' });
+          if (!response.ok || !(await response.json()).active) {
+            console.log('[VENUES] No active subscription, redirecting to billing');
+            router.push('/?redirect=billing');
+          }
+        } catch (err) {
+          console.error('[VENUES] Subscription check failed:', err);
+          router.push('/?redirect=billing');
+        }
+      };
+      checkSubscription();
+    }
+  }, [isAuthenticated, router]);
+
   // ========== Component logic and other hooks - NO EARLY RETURNS ==========
 
   const fetchVenues = async (

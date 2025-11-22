@@ -68,6 +68,20 @@ export default function HomePage() {
       return;
     }
 
+    if (redirect === 'billing') {
+      // User needs to subscribe - show billing modal
+      setAwaitingEmailConfirmation(false);
+      setJustConfirmedSignup(false);
+      setShowSignupInstructionOnly(false);
+      setShowAuthModal(false);
+      setAuthMessage('');
+      setSigninInlineMessage('');
+      // Trigger billing flow directly by calling checkout
+      handleStartSubscription();
+      window.history.replaceState({}, '', '/');
+      return;
+    }
+
     // 2) Supabase hash-based flow: http://localhost:3000/#access_token=...&type=signup
     if (typeof window !== 'undefined' && window.location.hash) {
       const rawHash = window.location.hash; // e.g. '#access_token=...&type=signup'
@@ -209,6 +223,31 @@ export default function HomePage() {
       window.location.href = '/';
     } catch (err) {
       console.error('Sign out error:', err);
+    }
+  };
+
+  const handleStartSubscription = async () => {
+    try {
+      console.log('[HOME] Starting subscription checkout...');
+      const res = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        console.error('[HOME] Checkout error:', data);
+        const errorMsg = data.details
+          ? `${data.error}\n\nDetails: ${data.details}`
+          : data.error || 'Could not start subscription';
+        alert(`Checkout session creation failed:\n\n${errorMsg}`);
+        return;
+      }
+      console.log('[HOME] Redirecting to Stripe Checkout:', data.url);
+      window.location.href = data.url;
+    } catch (err) {
+      console.error('[HOME] Unexpected error:', err);
+      alert('Unexpected error creating subscription');
     }
   };
 
@@ -1012,3 +1051,4 @@ export default function HomePage() {
     </div>
   );
 }
+
