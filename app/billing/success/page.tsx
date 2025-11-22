@@ -1,10 +1,9 @@
-// app/billing/success/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
-export default function BillingSuccessPage() {
+function BillingSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState<'pending' | 'ok' | 'error'>('pending');
@@ -23,7 +22,6 @@ export default function BillingSuccessPage() {
       try {
         console.log('[BILLING/SUCCESS] Confirming session:', sessionId);
 
-        // Get current user
         const meRes = await fetch('/api/auth/me', { credentials: 'include' });
         if (!meRes.ok) {
           setStatus('error');
@@ -111,7 +109,7 @@ export default function BillingSuccessPage() {
               {message}
             </p>
             <p style={{ fontSize: '0.85rem', marginBottom: 24, color: '#9CA3AF' }}>
-              Your 30-day free trial has started. You won't be charged until the trial ends.
+              Your 30-day free trial has started. You won&apos;t be charged until the trial ends.
             </p>
             <button
               onClick={() => router.push('/venues')}
@@ -160,6 +158,42 @@ export default function BillingSuccessPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function BillingSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAFAFA' }}>
+        <div style={{
+          maxWidth: 480,
+          padding: 32,
+          borderRadius: 12,
+          background: '#fff',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            border: '4px solid #E5E7EB',
+            borderTop: '4px solid #111827',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 20px'
+          }} />
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: 12 }}>Loading...</h1>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      </div>
+    }>
+      <BillingSuccessContent />
+    </Suspense>
   );
 }
 

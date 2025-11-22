@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const subscription = session.subscription;
+    const subscription = session.subscription as any; // Cast to any to access expanded properties
     const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
 
     console.log('[BILLING/CONFIRM] Subscription ID:', subscription.id);
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     // For trials, use trial_end as the period end, otherwise use current_period_end
     let currentPeriodEndISO: string | null = null;
-    const periodEndTimestamp = subscription.trial_end || subscription.current_period_end;
+    const periodEndTimestamp = (subscription.trial_end as number | undefined) || (subscription.current_period_end as number | undefined);
 
     if (periodEndTimestamp) {
       try {

@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { DEV_MODE } from '@/lib/supabaseServer';
 import { cookies } from 'next/headers';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     console.log('[AUTH/ME] Checking authentication...');
